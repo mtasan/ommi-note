@@ -183,7 +183,7 @@ export default async function handler(
   // Request size check
   const contentLength = parseInt(req.headers["content-length"] || "0", 10);
   if (contentLength > MAX_BODY_SIZE) {
-    return res.status(413).json({ error: "Request too large (max 10MB)" });
+    return res.status(413).json({ error: "Request too large (max 5MB)" });
   }
 
   // Get API key from server environment (NOT exposed to client)

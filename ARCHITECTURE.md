@@ -1,6 +1,109 @@
 # OmmiNote - Architecture
 
-Bu belge OmmiNote uygulamasinin mimari yapisini, veri akislarini ve tasarim kararlarini detaylandirir.
+Bu belge OmmiNote uygulamasinin mimari yapisini, deploy topolojisini, veri akislarini ve tasarim kararlarini detaylandirir.
+
+---
+
+## Deploy Topolojisi
+
+```
+┌─────────────────────────────────────────────────────────────────┐
+│                        KULLANICI CIHAZI                          │
+│                                                                 │
+│  ┌───────────────────────────────────────────────────────────┐  │
+│  │              OmmiNote Mobile App                           │  │
+│  │          (React Native + Expo SDK 55)                      │  │
+│  │                                                           │  │
+│  │  Platform: iOS / Android / Web                            │  │
+│  │  Dağıtım: Expo Go (dev) / EAS Build (prod)               │  │
+│  │  Veri:    SQLite (yerel, offline-first)                   │  │
+│  │  Ses:     expo-av (kayıt + oynatma)                       │  │
+│  │  Bildirim: expo-notifications (local push)                │  │
+│  └──────────────────────┬────────────────────────────────────┘  │
+│                         │ HTTPS (base64 audio veya text)        │
+└─────────────────────────┼───────────────────────────────────────┘
+                          │
+                          ▼
+┌─────────────────────────────────────────────────────────────────┐
+│                     VERCEL EDGE NETWORK                          │
+│                  https://ommi-note.vercel.app                    │
+│                                                                 │
+│  ┌───────────────────────────────────────────────────────────┐  │
+│  │            api/transcribe.ts (Serverless Function)         │  │
+│  │                                                           │  │
+│  │  POST /api/transcribe                                     │  │
+│  │                                                           │  │
+│  │  Güvenlik:                                                │  │
+│  │  ├── CORS (izinli origin whitelist)                       │  │
+│  │  ├── Rate Limiting (2/dk + 20/saat, IP başına)            │  │
+│  │  ├── Body size limit (5MB)                                │  │
+│  │  └── API key sunucuda (GEMINI_API_KEY env var)            │  │
+│  │                                                           │  │
+│  │  İşlev:                                                   │  │
+│  │  ├── Türkçe prompt oluşturma (tarih inject)               │  │
+│  │  ├── Gemini API çağrısı (audio veya text)                 │  │
+│  │  └── JSON response parse + client'a dönüş                 │  │
+│  └──────────────────────┬────────────────────────────────────┘  │
+│                         │                                       │
+│  Deploy: GitHub push → otomatik build & deploy                  │
+│  Repo:   github.com/mtasan/ommi-note (main branch)             │
+│  Config: vercel.json (maxDuration: 30s)                         │
+└─────────────────────────┼───────────────────────────────────────┘
+                          │ HTTPS (API key server-side)
+                          ▼
+┌─────────────────────────────────────────────────────────────────┐
+│                    GOOGLE GEMINI API                              │
+│          generativelanguage.googleapis.com                        │
+│                                                                 │
+│  Model: gemini-2.5-flash                                        │
+│  Mod:   Multimodal (audio + text → structured JSON)             │
+│  Ücret: Pay-as-you-go (~$0.001/istek)                           │
+└─────────────────────────────────────────────────────────────────┘
+```
+
+---
+
+## Veri Akışı: Sesli Not Oluşturma (Uçtan Uca)
+
+```
+📱 Kullanıcı mikrofona konuşur
+      │
+      ▼
+[expo-av] Ses kaydı → .m4a dosyası (cihaz cache)
+      │
+      ▼
+[expo-file-system] Dosyayı base64'e çevir
+      │
+      ▼
+[src/lib/gemini.ts] POST → https://ommi-note.vercel.app/api/transcribe
+      │                     Body: { audioBase64, mimeType }
+      │                     (retry: 2x exponential backoff on 429/502/503)
+      │
+      ▼
+[api/transcribe.ts] CORS check → Rate limit check → Body size check
+      │
+      ▼
+[api/transcribe.ts] Prompt oluştur (bugünün tarihi inject) → Gemini API çağır
+      │
+      ▼
+[Gemini 2.5 Flash] Audio transkript + intent extraction
+      │
+      ▼
+[api/transcribe.ts] JSON parse → { noteContent, transcript, reminder? }
+      │
+      ▼
+📱 Client auto-fill:
+      ├── noteContent → TextInput'a yazılır
+      ├── transcript  → Kayıt altında saklanır
+      └── reminder?   → "Hatırlatıcı tespit edildi" badge gösterilir
+             │
+             ▼
+      Kullanıcı "Kaydet" → createNote(text, type, color, audioUri, transcript, reminderDate)
+             │
+             ├── SQLite INSERT (notes tablosu)
+             ├── [Hatırlatıcı varsa] SQLite INSERT (reminders) + expo-notifications schedule
+             └── Zustand state güncelle → UI re-render
+```
 
 ---
 
@@ -22,7 +125,8 @@ Bu belge OmmiNote uygulamasinin mimari yapisini, veri akislarini ve tasarim kara
 │  │  │ │ NoteCard │ │  │ │ Reminder │ │  │ │  Editor  │ │  │ │
 │  │  │ │ FAB      │ │  │ │ List     │ │  │ │  Player  │ │  │ │
 │  │  │ │ BottomSht│ │  │ │ Checkbox │ │  │ │  Reminder│ │  │ │
-│  │  │ └──────────┘ │  │ └──────────┘ │  │ └──────────┘ │  │ │
+│  │  │ │Transcript│ │  │ └──────────┘ │  │ │Transcript│ │  │ │
+│  │  │ └──────────┘ │  │              │  │ └──────────┘ │  │ │
 │  │  └──────────────┘  └──────────────┘  └──────────────┘  │ │
 │  └─────────────────────────────────────────────────────────┘ │
 │                              │                                │
@@ -34,7 +138,8 @@ Bu belge OmmiNote uygulamasinin mimari yapisini, veri akislarini ve tasarim kara
 │  │  ├── notes: Note[]                                      │ │
 │  │  ├── reminders: Reminder[]                              │ │
 │  │  ├── loadNotes() / loadReminders()                      │ │
-│  │  ├── createNote() / updateNote() / deleteNote()         │ │
+│  │  ├── createNote(..., reminderDate?) → auto-reminder     │ │
+│  │  ├── updateNote() / deleteNote()                        │ │
 │  │  └── addReminder() / completeReminder()                 │ │
 │  └─────────────────────────────────────────────────────────┘ │
 │                              │                                │
@@ -42,15 +147,19 @@ Bu belge OmmiNote uygulamasinin mimari yapisini, veri akislarini ve tasarim kara
 │  ┌─────────────────────────────────────────────────────────┐ │
 │  │                    Data Layer                            │ │
 │  │                                                         │ │
-│  │  ┌─────────────┐  ┌──────────────┐  ┌──────────────┐   │ │
-│  │  │   SQLite    │  │   expo-av    │  │expo-notific. │   │ │
-│  │  │ (Drizzle)   │  │  (Audio)     │  │ (Reminders)  │   │ │
-│  │  │             │  │              │  │              │   │ │
-│  │  │ notes       │  │ Record       │  │ Schedule     │   │ │
-│  │  │ reminders   │  │ Playback     │  │ Cancel       │   │ │
-│  │  └─────────────┘  └──────────────┘  └──────────────┘   │ │
-│  └─────────────────────────────────────────────────────────┘ │
-└──────────────────────────────────────────────────────────────┘
+│  │  ┌────────────┐ ┌──────────┐ ┌──────────┐ ┌─────────┐  │ │
+│  │  │  SQLite    │ │ expo-av  │ │expo-notif│ │ Gemini  │  │ │
+│  │  │ (Drizzle)  │ │ (Audio)  │ │(Reminder)│ │ Proxy   │  │ │
+│  │  │            │ │          │ │          │ │         │  │ │
+│  │  │ notes      │ │ Record   │ │ Schedule │ │ STT +   │  │ │
+│  │  │ reminders  │ │ Playback │ │ Cancel   │ │ Intent  │  │ │
+│  │  └────────────┘ └──────────┘ └──────────┘ └────┬────┘  │ │
+│  └─────────────────────────────────────────────────┼───────┘ │
+└────────────────────────────────────────────────────┼─────────┘
+                                                     │ HTTPS
+                                                     ▼
+                                              Vercel Serverless
+                                              → Gemini 2.5 Flash
 ```
 
 ---
@@ -64,35 +173,25 @@ Expo Router file-based routing ile ekranlar tanimlanir.
 ```
 app/
 ├── _layout.tsx           # GestureHandlerRootView + DB init + bildirim izni
+│                         # + bildirim tıklama listener (auto-complete + deep link)
 ├── (tabs)/
 │   ├── _layout.tsx       # Tab bar (Notlar + Hatirlaticilar)
-│   ├── index.tsx         # Not listesi + FAB + BottomSheet
+│   ├── index.tsx         # Not listesi + FAB + BottomSheet + AI transkript akışı
 │   └── reminders.tsx     # Hatirlatici listesi (aktif + tamamlanan)
 └── note/
-    └── [id].tsx          # Not detay, duzenleme, ses oynatma
-```
-
-**Navigasyon Akisi:**
-```
-Tab Navigator
-├── Notes Tab (index)
-│   ├── [FAB tikla] → BottomSheet acilir (yeni not)
-│   └── [Kart tikla] → note/[id] ekranina git
-├── Reminders Tab
-│   └── [Kart tikla] → note/[id] ekranina git
+    └── [id].tsx          # Not detay, duzenleme, ses oynatma, transkript gösterimi
 ```
 
 ### 2. Component Layer (`src/components/`)
-
-Yeniden kullanilabilir, state'siz (veya kendi local state'li) bilesenler:
 
 | Bilesen | Sorumluluk | Kullanildigi Yer |
 |---------|------------|------------------|
 | `NoteCard` | Renkli not karti render | Notes listesi |
 | `VoiceRecorder` | Mikrofon kayit UI + expo-av | BottomSheet (yeni not) |
-| `ReminderPicker` | Hizli secenekler + tarih secici | Note detay |
+| `ReminderPicker` | 6 hizli secenek + tarih secici | Note detay |
 | `ColorPicker` | 8 renk secim dairesi | BottomSheet (yeni not) |
 | `EmptyState` | Ikon + mesaj (bos liste) | Notes, Reminders |
+| `TranscriptionStatus` | AI isleme durumu (spinner/sonuc/hata) | BottomSheet (yeni not) |
 
 ### 3. State Layer (`src/stores/`)
 
@@ -100,102 +199,98 @@ Yeniden kullanilabilir, state'siz (veya kendi local state'li) bilesenler:
 
 ```typescript
 interface NoteStore {
-  // State
   notes: Note[]
   reminders: Reminder[]
   isLoading: boolean
 
-  // Actions
-  loadNotes()         // DB'den notlari yukle
-  loadReminders()     // DB'den haticilari yukle
-  createNote(...)     // Not olustur → SQLite INSERT
-  updateNote(...)     // Not guncelle → SQLite UPDATE
-  deleteNote(...)     // Not sil → SQLite DELETE (cascade)
-  addReminder(...)    // Hatirlatici ekle → bildirim zamanla + DB INSERT
-  completeReminder()  // Hatirlatici tamamla → bildirim iptal + DB UPDATE
-  deleteReminder()    // Hatirlatici sil → bildirim iptal + DB DELETE
-  getReminderForNote() // Nota ait aktif hatirlaticiyi getir
+  loadNotes()                           // DB'den notlari yukle
+  loadReminders()                       // DB'den haticilari yukle
+  createNote(..., reminderDate?)        // Not olustur + opsiyonel hatirlatici
+  updateNote(...)                       // Not guncelle
+  deleteNote(...)                       // Not sil (cascade)
+  addReminder(...)                      // Hatirlatici ekle + bildirim zamanla
+  completeReminder()                    // Hatirlatici tamamla
+  deleteReminder()                      // Hatirlatici sil
+  getReminderForNote()                  // Nota ait aktif hatirlatici
 }
-```
-
-**Veri Akisi Patterni:**
-```
-UI Event → Store Action → SQLite Write → State Update → UI Re-render
-                        → Notification Schedule (hatirlatici icin)
 ```
 
 ### 4. Data Layer (`src/lib/`)
 
-| Modul | Sorumluluk |
-|-------|------------|
-| `database.ts` | SQLite baglantisi, tablo olusturma (initDatabase) |
-| `schema.ts` | Drizzle ORM tablo semalari (notes, reminders) |
-| `notifications.ts` | Bildirim izinleri, zamanlama, iptal |
-| `colors.ts` | 8 renk paleti, yardimci fonksiyonlar |
+| Modul | Sorumluluk | Platform |
+|-------|------------|----------|
+| `database.ts` | SQLite baglantisi, tablo olusturma | Native only |
+| `database.web.ts` | Web stub (null doner, in-memory) | Web only |
+| `schema.ts` | Drizzle ORM tablo semalari | Native only |
+| `gemini.ts` | Vercel proxy'ye istek + retry + hata yonetimi | Tüm platformlar |
+| `notifications.ts` | Bildirim izinleri, zamanlama, iptal | Native only |
+| `colors.ts` | 8 renk paleti, yardimci fonksiyonlar | Tüm platformlar |
+
+### 5. Serverless API Layer (`api/`)
+
+| Dosya | Endpoint | Sorumluluk | Deploy |
+|-------|----------|------------|--------|
+| `api/transcribe.ts` | `POST /api/transcribe` | Gemini proxy + CORS + rate limit | Vercel |
 
 ---
 
-## Veri Akislari
-
-### Not Olusturma Akisi
+## Dosya → Deploy Matrisi
 
 ```
-Kullanici
-  │
-  ├── FAB'a tiklar
-  │     └── BottomSheet acilir
-  │           ├── Renk secer (ColorPicker)
-  │           ├── Metin yazar
-  │           └── [Opsiyonel] Ses kaydeder (VoiceRecorder)
-  │                 └── expo-av → Recording → URI
-  │
-  ├── "Kaydet" tiklar
-  │     └── useNoteStore.createNote()
-  │           ├── uuid() → yeni ID
-  │           ├── db.insert(notes) → SQLite'a kayit
-  │           ├── set(state) → Zustand state guncelle
-  │           └── Haptics feedback
-  │
-  └── BottomSheet kapanir, yeni kart listede gorunur
+┌────────────────────────────────────┬───────────────────────────────┐
+│           DOSYA                     │         DEPLOY                │
+├────────────────────────────────────┼───────────────────────────────┤
+│ app/**                             │ 📱 Mobile (Expo Go / EAS)    │
+│ src/components/**                  │ 📱 Mobile (Expo Go / EAS)    │
+│ src/stores/**                      │ 📱 Mobile (Expo Go / EAS)    │
+│ src/lib/database.ts                │ 📱 Mobile (native only)      │
+│ src/lib/database.web.ts            │ 🌐 Web (Expo Web)            │
+│ src/lib/gemini.ts                  │ 📱 Mobile + 🌐 Web           │
+│ src/lib/notifications.ts           │ 📱 Mobile (native only)      │
+│ src/lib/schema.ts                  │ 📱 Mobile (native only)      │
+│ src/lib/colors.ts                  │ 📱 Mobile + 🌐 Web           │
+│ src/types/**                       │ 📱 Mobile + 🌐 Web           │
+├────────────────────────────────────┼───────────────────────────────┤
+│ api/transcribe.ts                  │ ☁️  Vercel Serverless         │
+│ vercel.json                        │ ☁️  Vercel Config             │
+├────────────────────────────────────┼───────────────────────────────┤
+│ .env                               │ 🔒 Sadece lokal (.gitignore) │
+│ Vercel Env: GEMINI_API_KEY         │ ☁️  Vercel (encrypted)        │
+└────────────────────────────────────┴───────────────────────────────┘
 ```
 
-### Hatirlatici Akisi
+---
+
+## Güvenlik Mimarisi
 
 ```
-Kullanici (Not detay ekraninda)
-  │
-  ├── Alarm ikonuna tiklar
-  │     └── ReminderPicker acilir
-  │           ├── Hizli secenekler: 30dk, 1 saat, 3 saat, Yarin 09:00
-  │           └── Ozel tarih/saat secici
-  │
-  ├── Zaman secer
-  │     └── useNoteStore.addReminder()
-  │           ├── expo-notifications → scheduleNotificationAsync()
-  │           │     └── Local bildirim zamanlanir
-  │           ├── db.insert(reminders) → SQLite'a kayit
-  │           └── set(state) → Zustand state guncelle
-  │
-  └── Zaman geldiginde
-        └── OS bildirim gosterir
-              └── Kullanici tiklar → nota yonlendirilir
-```
-
-### Ses Oynatma Akisi
-
-```
-Not Detay Ekrani
-  │
-  ├── Play butonuna tiklar
-  │     └── Audio.Sound.createAsync(uri)
-  │           └── shouldPlay: true
-  │
-  ├── Oynatma bitince
-  │     └── onPlaybackStatusUpdate → didJustFinish
-  │           └── sound.unloadAsync()
-  │
-  └── Ekrandan cikildiginda
-        └── useEffect cleanup → soundRef.unloadAsync()
+📱 Client (React Native)
+│
+│  ✅ API key YOK (bundle'da saklanmaz)
+│  ✅ Prompt YOK (bundle'da saklanmaz)
+│  ✅ Sadece EXPO_PUBLIC_API_URL (Vercel URL) var
+│
+│  POST /api/transcribe
+│  Body: { audioBase64, mimeType } veya { text }
+│
+▼
+☁️ Vercel Serverless Function
+│
+│  🔒 CORS: İzinli origin whitelist
+│  🔒 Rate Limit: 2/dk + 20/saat (IP başına)
+│  🔒 Body Limit: 5MB max
+│  🔒 GEMINI_API_KEY: Encrypted env var (sunucu tarafı)
+│
+│  → Gemini API çağrısı (key sunucuda)
+│
+▼
+🤖 Google Gemini 2.5 Flash
+│
+│  Multimodal: Audio → Transkript + Intent
+│  Billing: Pay-as-you-go
+│
+▼
+☁️ Vercel → JSON response → 📱 Client
 ```
 
 ---
@@ -228,16 +323,16 @@ Iliskiler:
 ### Renk Paleti
 
 **Not Renkleri (Google Keep tarzi):**
-| Renk | Arkaplan | Kenarlık | Kullanim |
-|------|----------|----------|----------|
-| Yellow | `#FFF9C4` | `#FFF176` | Varsayilan |
-| Green | `#C8E6C9` | `#81C784` | |
-| Blue | `#BBDEFB` | `#64B5F6` | |
-| Purple | `#E1BEE7` | `#BA68C8` | |
-| Pink | `#F8BBD0` | `#F06292` | |
-| Orange | `#FFE0B2` | `#FFB74D` | |
-| Teal | `#B2DFDB` | `#4DB6AC` | |
-| Red | `#FFCDD2` | `#E57373` | |
+| Renk | Arkaplan | Kenarlık |
+|------|----------|----------|
+| Yellow | `#FFF9C4` | `#FFF176` |
+| Green | `#C8E6C9` | `#81C784` |
+| Blue | `#BBDEFB` | `#64B5F6` |
+| Purple | `#E1BEE7` | `#BA68C8` |
+| Pink | `#F8BBD0` | `#F06292` |
+| Orange | `#FFE0B2` | `#FFB74D` |
+| Teal | `#B2DFDB` | `#4DB6AC` |
+| Red | `#FFCDD2` | `#E57373` |
 
 **Uygulama Renkleri:**
 | Rol | Renk | Kullanim |
@@ -248,96 +343,8 @@ Iliskiler:
 | Text Secondary | `#737373` | Aciklamalar |
 | Danger | `#EF4444` | Silme, gecmis hatirlatici |
 | Warning | `#E65100` | Aktif hatirlatici badge |
-
-### Bilesen Hiyerarsisi
-
-```
-NotesScreen
-├── Header (greeting + baslik)
-├── FlatList (numColumns=2, grid layout)
-│   └── NoteCard (renkli kart)
-│       ├── Type icon + tarih
-│       ├── Icerik onizleme (max 4 satir)
-│       └── Ses badge (varsa)
-├── FAB (sag alt, yuvarlak, mavi)
-└── BottomSheet
-    ├── Baslik "Yeni Not"
-    ├── ColorPicker (8 daire)
-    ├── TextInput (multiline)
-    ├── VoiceRecorder (opsiyonel)
-    └── Toolbar [Sesli] [Kaydet]
-```
-
----
-
-## Tasarim Kararlari
-
-### Neden Expo + React Native?
-- **Tek codebase** ile iOS + Android
-- **Expo Go** ile aninda test (build gerektirmez)
-- **OTA updates** ile store onay beklemeden guncelleme
-- Genis ekosistem ve topluluk destegi
-
-### Neden SQLite (Offline-First)?
-- Internet bagimliligi yok, aninda calisir
-- Hiz: yerel DB okuma/yazma < 1ms
-- Gelecekte Supabase sync eklenebilir
-- Drizzle ORM ile type-safe sorgular
-
-### Neden Zustand?
-- Minimal boilerplate (Redux'a kiyasla)
-- TypeScript ile mukemmel uyum
-- Async actions icin ekstra middleware gerektirmez
-- < 1KB bundle boyutu
-
-### Neden Bottom Sheet?
-- Tek elle kullanim (thumb zone)
-- Hizli erisim (tam sayfa gecisi yok)
-- Klavye ile uyumlu
-- Gesture ile kapama destegi
-
-### Neden 2 Sutun Grid?
-- Google Keep tarzi tanitik deneyim
-- Daha fazla not tek ekranda gorunur
-- Renkli kartlar grid'de daha etkili
-
----
-
-## Gelecek Mimari (Planli)
-
-### Faz 2: Cloud Sync (Supabase)
-
-```
-┌──────────────────┐     ┌──────────────────┐
-│   Mobile App     │     │    Supabase      │
-│                  │     │                  │
-│  ┌────────────┐  │     │  ┌────────────┐  │
-│  │  SQLite    │──┼─sync─┼─►│ PostgreSQL │  │
-│  │  (local)   │◄─┼─────┼──│ (cloud)    │  │
-│  └────────────┘  │     │  └────────────┘  │
-│                  │     │                  │
-│  ┌────────────┐  │     │  ┌────────────┐  │
-│  │ Auth Store │──┼─────┼─►│ Supabase   │  │
-│  │            │  │     │  │ Auth       │  │
-│  └────────────┘  │     │  └────────────┘  │
-│                  │     │                  │
-│  ┌────────────┐  │     │  ┌────────────┐  │
-│  │ Audio Files│──┼─────┼─►│ Supabase   │  │
-│  │ (local)    │  │     │  │ Storage    │  │
-│  └────────────┘  │     │  └────────────┘  │
-└──────────────────┘     └──────────────────┘
-```
-
-### Faz 3: Speech-to-Text
-
-```
-Ses Kaydi
-  └── expo-av Recording
-        └── Audio dosyasi
-              ├── Yerel saklama (audioUri)
-              └── Whisper API'ye gonder
-                    └── Transkript → note.transcript
-```
+| Success | `#16A34A` | Transkript badge |
+| Info | `#2563EB` | Hatırlatıcı önerisi badge |
 
 ---
 
@@ -345,6 +352,7 @@ Ses Kaydi
 
 ```
 app/_layout.tsx
+  └── src/stores/useNoteStore.ts (completeReminder)
   └── src/lib/database.ts (initDatabase)
   └── src/lib/notifications.ts (requestPermissions)
 
@@ -355,6 +363,8 @@ app/(tabs)/index.tsx
   └── src/components/VoiceRecorder.tsx
   └── src/components/ColorPicker.tsx
   └── src/components/EmptyState.tsx
+  └── src/components/TranscriptionStatus.tsx
+  └── src/lib/gemini.ts (transcribeAndExtract)
   └── src/lib/colors.ts
 
 app/(tabs)/reminders.tsx
@@ -374,6 +384,57 @@ src/stores/useNoteStore.ts
   └── src/lib/colors.ts (getRandomColor)
   └── src/types/note.ts
 
-src/lib/database.ts
-  └── src/lib/schema.ts
+src/lib/gemini.ts
+  └── expo-file-system (native: audio → base64)
+  └── Vercel proxy (HTTPS fetch + retry)
+
+api/transcribe.ts (Vercel)
+  └── Google Gemini API (server-side key)
 ```
+
+---
+
+## Tasarim Kararlari
+
+### Neden Expo + React Native?
+- **Tek codebase** ile iOS + Android + Web
+- **Expo Go** ile aninda test (build gerektirmez)
+- **OTA updates** ile store onay beklemeden guncelleme
+
+### Neden SQLite (Offline-First)?
+- Internet bagimliligi yok, aninda calisir
+- Hiz: yerel DB okuma/yazma < 1ms
+- Drizzle ORM ile type-safe sorgular
+
+### Neden Vercel Serverless Proxy?
+- API key client'ta saklanmaz (güvenlik)
+- Prompt/model bilgisi client bundle'da yok
+- GitHub push → otomatik deploy
+- Ücretsiz tier yeterli (100K istek/ay)
+- Rate limiting + CORS sunucu tarafında
+
+### Neden Gemini 2.5 Flash?
+- Multimodal: tek API çağrısı ile audio → transkript + intent
+- Hızlı (~2-5 saniye) ve ucuz (~$0.001/istek)
+- Türkçe dil desteği iyi
+- Yapılandırılmış JSON çıktı desteği
+
+### Neden Zustand?
+- Minimal boilerplate (Redux'a kiyasla)
+- TypeScript ile mukemmel uyum
+- Async actions icin ekstra middleware gerektirmez
+
+---
+
+## Gelecek Mimari (Planli)
+
+### Faz 2: Cloud Sync (Supabase)
+- SQLite ↔ PostgreSQL çift yönlü sync
+- Supabase Auth (kullanıcı girişi)
+- Supabase Storage (ses dosyaları buluta)
+
+### Faz 3: Gelişmiş Özellikler
+- Offline queue: İnternet yokken ses kaydını sakla, bağlantıda AI'ya gönder
+- Not arama ve filtreleme
+- Etiketler / kategoriler
+- EAS Build ile App Store / Play Store dağıtım
