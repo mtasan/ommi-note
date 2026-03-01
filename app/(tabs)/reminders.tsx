@@ -4,13 +4,15 @@ import { useFocusEffect, useRouter } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
 import { format, isPast } from "date-fns";
-import { tr } from "date-fns/locale";
 import * as Haptics from "expo-haptics";
+import { useTranslation } from "react-i18next";
 import { useNoteStore } from "../../src/stores/useNoteStore";
 import { getColorByName } from "../../src/lib/colors";
+import { getDateLocale } from "../../src/i18n/dateLocale";
 import { EmptyState } from "../../src/components/EmptyState";
 
 export default function RemindersScreen() {
+  const { t } = useTranslation();
   const insets = useSafeAreaInsets();
   const router = useRouter();
   const { notes, reminders, loadNotes, loadReminders, completeReminder } =
@@ -122,7 +124,7 @@ export default function RemindersScreen() {
                 lineHeight: 22,
               }}
             >
-              {note.content || "Sesli not"}
+              {note.content || t("notes.voiceNote")}
             </Text>
 
             <View
@@ -146,9 +148,9 @@ export default function RemindersScreen() {
                 }}
               >
                 {format(new Date(item.remindAt), "d MMM yyyy, HH:mm", {
-                  locale: tr,
+                  locale: getDateLocale(),
                 })}
-                {isOverdue && " (geçmiş)"}
+                {isOverdue && ` (${t("reminders.overdue")})`}
               </Text>
             </View>
           </View>
@@ -169,7 +171,7 @@ export default function RemindersScreen() {
         }}
       >
         <Text style={{ fontSize: 28, fontWeight: "800", color: "#262626" }}>
-          Hatırlatıcılar
+          {t("reminders.title")}
         </Text>
       </View>
 
@@ -192,15 +194,15 @@ export default function RemindersScreen() {
                 letterSpacing: 1,
               }}
             >
-              Aktif ({activeReminders.length})
+              {t("reminders.active")} ({activeReminders.length})
             </Text>
           ) : null
         }
         ListEmptyComponent={
           <EmptyState
             icon="alarm-outline"
-            title="Hatırlatıcı yok"
-            description="Notlarına hatırlatıcı ekleyerek hiçbir şeyi kaçırma!"
+            title={t("reminders.emptyTitle")}
+            description={t("reminders.emptyDescription")}
           />
         }
       />

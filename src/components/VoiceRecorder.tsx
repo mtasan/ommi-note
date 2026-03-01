@@ -3,12 +3,14 @@ import { View, Text, Pressable, Alert } from "react-native";
 import { Audio } from "expo-av";
 import * as Haptics from "expo-haptics";
 import { Ionicons } from "@expo/vector-icons";
+import { useTranslation } from "react-i18next";
 
 interface VoiceRecorderProps {
   onRecordingComplete: (uri: string) => void;
 }
 
 export function VoiceRecorder({ onRecordingComplete }: VoiceRecorderProps) {
+  const { t } = useTranslation();
   const [isRecording, setIsRecording] = useState(false);
   const [duration, setDuration] = useState(0);
   const recordingRef = useRef<Audio.Recording | null>(null);
@@ -24,7 +26,7 @@ export function VoiceRecorder({ onRecordingComplete }: VoiceRecorderProps) {
     try {
       const permission = await Audio.requestPermissionsAsync();
       if (!permission.granted) {
-        Alert.alert("İzin Gerekli", "Sesli not için mikrofon izni gerekli. Ayarlar'dan izin verin.");
+        Alert.alert(t("alerts.permissionTitle"), t("alerts.permissionMessage"));
         return;
       }
 
@@ -48,7 +50,7 @@ export function VoiceRecorder({ onRecordingComplete }: VoiceRecorderProps) {
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
     } catch (err: any) {
       console.error("[VoiceRecorder] startRecording error:", err);
-      Alert.alert("Hata", `Ses kaydı başlatılamadı: ${err?.message || "Bilinmeyen hata"}`);
+      Alert.alert(t("alerts.errorTitle"), `${t("alerts.recordStartError")}: ${err?.message || t("errors.unknownError")}`);
     }
   };
 
@@ -76,7 +78,7 @@ export function VoiceRecorder({ onRecordingComplete }: VoiceRecorderProps) {
       }
     } catch (err: any) {
       console.error("[VoiceRecorder] stopRecording error:", err);
-      Alert.alert("Hata", `Ses kaydı durdurulamadı: ${err?.message || "Bilinmeyen hata"}`);
+      Alert.alert(t("alerts.errorTitle"), `${t("alerts.recordStopError")}: ${err?.message || t("errors.unknownError")}`);
     }
   };
 
@@ -98,7 +100,7 @@ export function VoiceRecorder({ onRecordingComplete }: VoiceRecorderProps) {
             </Text>
           </View>
           <Text style={{ fontSize: 12, color: "#A3A3A3", marginTop: 4 }}>
-            Kayıt yapılıyor...
+            {t("voice.recording")}
           </Text>
         </View>
       )}
@@ -122,7 +124,7 @@ export function VoiceRecorder({ onRecordingComplete }: VoiceRecorderProps) {
       </Pressable>
 
       <Text style={{ fontSize: 12, color: "#A3A3A3", marginTop: 8 }}>
-        {isRecording ? "Durdurmak için dokun" : "Sesli not kaydet"}
+        {isRecording ? t("voice.stopTouch") : t("voice.recordNote")}
       </Text>
     </View>
   );

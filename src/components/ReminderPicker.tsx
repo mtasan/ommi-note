@@ -2,7 +2,8 @@ import { useState } from "react";
 import { View, Text, Pressable, Alert, Platform } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { format } from "date-fns";
-import { tr } from "date-fns/locale";
+import { useTranslation } from "react-i18next";
+import { getDateLocale } from "../i18n/dateLocale";
 
 const isWeb = Platform.OS === "web";
 
@@ -18,29 +19,29 @@ interface ReminderPickerProps {
 }
 
 type QuickOption = {
-  label: string;
+  labelKey: string;
   icon: keyof typeof Ionicons.glyphMap;
   getDate: () => Date;
 };
 
 const QUICK_OPTIONS: QuickOption[] = [
   {
-    label: "30 dk sonra",
+    labelKey: "quickReminder.30min",
     icon: "timer-outline",
     getDate: () => new Date(Date.now() + 30 * 60 * 1000),
   },
   {
-    label: "1 saat sonra",
+    labelKey: "quickReminder.1hour",
     icon: "time-outline",
     getDate: () => new Date(Date.now() + 60 * 60 * 1000),
   },
   {
-    label: "3 saat sonra",
+    labelKey: "quickReminder.3hours",
     icon: "hourglass-outline",
     getDate: () => new Date(Date.now() + 3 * 60 * 60 * 1000),
   },
   {
-    label: "Yarın 09:00",
+    labelKey: "quickReminder.tomorrow9",
     icon: "sunny-outline",
     getDate: () => {
       const d = new Date();
@@ -50,18 +51,19 @@ const QUICK_OPTIONS: QuickOption[] = [
     },
   },
   {
-    label: "1 gün sonra",
+    labelKey: "quickReminder.1day",
     icon: "calendar-outline",
     getDate: () => new Date(Date.now() + 24 * 60 * 60 * 1000),
   },
   {
-    label: "1 hafta sonra",
+    labelKey: "quickReminder.1week",
     icon: "calendar-number-outline",
     getDate: () => new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
   },
 ];
 
 export function ReminderPicker({ onSchedule, onCancel }: ReminderPickerProps) {
+  const { t } = useTranslation();
   const [selectedDate, setSelectedDate] = useState(
     new Date(Date.now() + 60 * 60 * 1000)
   );
@@ -83,9 +85,9 @@ export function ReminderPicker({ onSchedule, onCancel }: ReminderPickerProps) {
   const handleConfirmCustom = () => {
     if (selectedDate.getTime() <= Date.now()) {
       if (isWeb) {
-        alert("Hatırlatma zamanı gelecekte olmalı.");
+        alert(t("reminders.futureRequired"));
       } else {
-        Alert.alert("Hata", "Hatırlatma zamanı gelecekte olmalı.");
+        Alert.alert(t("reminders.errorTitle"), t("reminders.futureRequired"));
       }
       return;
     }
@@ -117,7 +119,7 @@ export function ReminderPicker({ onSchedule, onCancel }: ReminderPickerProps) {
         <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
           <Ionicons name="alarm" size={22} color="#3B82F6" />
           <Text style={{ fontSize: 18, fontWeight: "700", color: "#262626" }}>
-            Hatırlatıcı Ekle
+            {t("reminders.add")}
           </Text>
         </View>
         <Pressable
@@ -143,7 +145,7 @@ export function ReminderPicker({ onSchedule, onCancel }: ReminderPickerProps) {
           letterSpacing: 0.5,
         }}
       >
-        Hızlı Seçenekler
+        {t("reminders.quickOptions")}
       </Text>
 
       <View
@@ -156,7 +158,7 @@ export function ReminderPicker({ onSchedule, onCancel }: ReminderPickerProps) {
       >
         {QUICK_OPTIONS.map((opt) => (
           <Pressable
-            key={opt.label}
+            key={opt.labelKey}
             onPress={() => handleQuickOption(opt)}
             style={{
               flexDirection: "row",
@@ -172,7 +174,7 @@ export function ReminderPicker({ onSchedule, onCancel }: ReminderPickerProps) {
           >
             <Ionicons name={opt.icon} size={16} color="#2563EB" />
             <Text style={{ fontSize: 13, color: "#2563EB", fontWeight: "600" }}>
-              {opt.label}
+              {t(opt.labelKey)}
             </Text>
           </Pressable>
         ))}
@@ -196,7 +198,7 @@ export function ReminderPicker({ onSchedule, onCancel }: ReminderPickerProps) {
             letterSpacing: 0.5,
           }}
         >
-          Özel Tarih/Saat
+          {t("reminders.customDateTime")}
         </Text>
 
         <Pressable
@@ -215,7 +217,7 @@ export function ReminderPicker({ onSchedule, onCancel }: ReminderPickerProps) {
         >
           <Ionicons name="calendar" size={20} color="#3B82F6" />
           <Text style={{ fontSize: 15, color: "#404040", flex: 1 }}>
-            {format(selectedDate, "d MMMM yyyy, HH:mm", { locale: tr })}
+            {format(selectedDate, "d MMMM yyyy, HH:mm", { locale: getDateLocale() })}
           </Text>
           <Ionicons name="chevron-forward" size={16} color="#A3A3A3" />
         </Pressable>
@@ -227,7 +229,6 @@ export function ReminderPicker({ onSchedule, onCancel }: ReminderPickerProps) {
             display="spinner"
             onChange={handleDateChange}
             minimumDate={new Date()}
-            locale="tr"
           />
         )}
 
@@ -268,7 +269,7 @@ export function ReminderPicker({ onSchedule, onCancel }: ReminderPickerProps) {
         >
           <Ionicons name="alarm" size={18} color="white" />
           <Text style={{ color: "white", fontWeight: "700", fontSize: 15 }}>
-            Hatırlatıcı Ayarla
+            {t("reminders.set")}
           </Text>
         </Pressable>
       </View>

@@ -1,6 +1,6 @@
-# OmmiNote - Architecture
+# Asyra - Architecture
 
-Bu belge OmmiNote uygulamasinin mimari yapisini, deploy topolojisini, veri akislarini ve tasarim kararlarini detaylandirir.
+Bu belge Asyra uygulamasinin mimari yapisini, deploy topolojisini, veri akislarini ve tasarim kararlarini detaylandirir.
 
 ---
 
@@ -11,7 +11,7 @@ Bu belge OmmiNote uygulamasinin mimari yapisini, deploy topolojisini, veri akisl
 │                        KULLANICI CIHAZI                          │
 │                                                                 │
 │  ┌───────────────────────────────────────────────────────────┐  │
-│  │              OmmiNote Mobile App                           │  │
+│  │                Asyra Mobile App                            │  │
 │  │          (React Native + Expo SDK 54)                      │  │
 │  │                                                           │  │
 │  │  Platform: iOS / Android / Web                            │  │
@@ -19,14 +19,16 @@ Bu belge OmmiNote uygulamasinin mimari yapisini, deploy topolojisini, veri akisl
 │  │  Veri:    SQLite (yerel, offline-first)                   │  │
 │  │  Ses:     expo-av (kayıt + oynatma)                       │  │
 │  │  Bildirim: expo-notifications (local push)                │  │
+│  │  i18n:    i18next + expo-localization (TR/EN)             │  │
 │  └──────────────────────┬────────────────────────────────────┘  │
 │                         │ HTTPS (base64 audio veya text)        │
+│                         │ + language param                      │
 └─────────────────────────┼───────────────────────────────────────┘
                           │
                           ▼
 ┌─────────────────────────────────────────────────────────────────┐
 │                     VERCEL EDGE NETWORK                          │
-│                  https://ommi-note.vercel.app                    │
+│                  https://asyra-app.vercel.app                        │
 │                                                                 │
 │  ┌───────────────────────────────────────────────────────────┐  │
 │  │            api/transcribe.ts (Serverless Function)         │  │
@@ -40,13 +42,13 @@ Bu belge OmmiNote uygulamasinin mimari yapisini, deploy topolojisini, veri akisl
 │  │  └── API key sunucuda (GEMINI_API_KEY env var)            │  │
 │  │                                                           │  │
 │  │  İşlev:                                                   │  │
-│  │  ├── Türkçe prompt oluşturma (tarih inject)               │  │
-│  │  ├── Gemini API çağrısı (audio veya text)                 │  │
+│  │  ├── Dil bazlı prompt seçimi (TR/EN)                      │  │
+│  │  ├── Tarih inject + Gemini API çağrısı (audio veya text)  │  │
 │  │  └── JSON response parse + client'a dönüş                 │  │
 │  └──────────────────────┬────────────────────────────────────┘  │
 │                         │                                       │
 │  Deploy: GitHub push → otomatik build & deploy                  │
-│  Repo:   github.com/mtasan/ommi-note (main branch)             │
+│  Repo:   github.com/mtasan/asyra (main branch)                 │
 │  Config: vercel.json (maxDuration: 30s)                         │
 └─────────────────────────┼───────────────────────────────────────┘
                           │ HTTPS (API key server-side)
@@ -75,15 +77,15 @@ Bu belge OmmiNote uygulamasinin mimari yapisini, deploy topolojisini, veri akisl
 [expo-file-system] Dosyayı base64'e çevir
       │
       ▼
-[src/lib/gemini.ts] POST → https://ommi-note.vercel.app/api/transcribe
-      │                     Body: { audioBase64, mimeType }
+[src/lib/gemini.ts] POST → https://asyra-app.vercel.app/api/transcribe
+      │                     Body: { audioBase64, mimeType, language }
       │                     (retry: 2x exponential backoff on 429/502/503)
       │
       ▼
 [api/transcribe.ts] CORS check → Rate limit check → Body size check
       │
       ▼
-[api/transcribe.ts] Prompt oluştur (bugünün tarihi inject) → Gemini API çağır
+[api/transcribe.ts] Dil bazlı prompt seç → tarih inject → Gemini API çağır
       │
       ▼
 [Gemini 2.5 Flash] Audio transkript + intent extraction
@@ -95,7 +97,7 @@ Bu belge OmmiNote uygulamasinin mimari yapisini, deploy topolojisini, veri akisl
 📱 Client auto-fill:
       ├── noteContent → TextInput'a yazılır
       ├── transcript  → Kayıt altında saklanır
-      └── reminder?   → "Hatırlatıcı tespit edildi" badge gösterilir
+      └── reminder?   → Hatırlatıcı badge gösterilir (dil bazlı)
              │
              ▼
       Kullanıcı "Kaydet" → createNote(text, type, color, audioUri, transcript, reminderDate)
@@ -111,7 +113,7 @@ Bu belge OmmiNote uygulamasinin mimari yapisini, deploy topolojisini, veri akisl
 
 ```
 ┌──────────────────────────────────────────────────────────────┐
-│                    OmmiNote Mobile App                        │
+│                      Asyra Mobile App                         │
 │                  (React Native + Expo)                        │
 │                                                              │
 │  ┌─────────────────────────────────────────────────────────┐ │
@@ -128,6 +130,17 @@ Bu belge OmmiNote uygulamasinin mimari yapisini, deploy topolojisini, veri akisl
 │  │  │ │Transcript│ │  │ └──────────┘ │  │ │Transcript│ │  │ │
 │  │  │ └──────────┘ │  │              │  │ └──────────┘ │  │ │
 │  │  └──────────────┘  └──────────────┘  └──────────────┘  │ │
+│  └─────────────────────────────────────────────────────────┘ │
+│                              │                                │
+│                              ▼                                │
+│  ┌─────────────────────────────────────────────────────────┐ │
+│  │                  i18n Layer (i18next)                     │ │
+│  │                                                         │ │
+│  │  src/i18n/index.ts          → i18next init              │ │
+│  │  src/i18n/locales/tr.json   → Türkçe (~85 key)         │ │
+│  │  src/i18n/locales/en.json   → English (~85 key)         │ │
+│  │  src/i18n/dateLocale.ts     → date-fns locale switch    │ │
+│  │  expo-localization          → Cihaz dili algılama       │ │
 │  └─────────────────────────────────────────────────────────┘ │
 │                              │                                │
 │                              ▼                                │
@@ -173,16 +186,32 @@ Expo Router file-based routing ile ekranlar tanimlanir.
 ```
 app/
 ├── _layout.tsx           # GestureHandlerRootView + DB init + bildirim izni
-│                         # + bildirim tıklama listener (auto-complete + deep link)
+│                         # + bildirim tıklama listener + i18n side-effect import
 ├── (tabs)/
-│   ├── _layout.tsx       # Tab bar (Notlar + Hatirlaticilar)
+│   ├── _layout.tsx       # Tab bar (i18n: t('tabs.notes') + t('tabs.reminders'))
 │   ├── index.tsx         # Not listesi + FAB + BottomSheet + AI transkript akışı
 │   └── reminders.tsx     # Hatirlatici listesi (aktif + tamamlanan)
 └── note/
     └── [id].tsx          # Not detay, duzenleme, ses oynatma, transkript gösterimi
 ```
 
-### 2. Component Layer (`src/components/`)
+### 2. i18n Layer (`src/i18n/`)
+
+Cihaz dilini otomatik algılayıp UI'ı uygun dilde sunar.
+
+| Dosya | Sorumluluk |
+|-------|------------|
+| `index.ts` | i18next init, expo-localization ile cihaz dili algılama, TR/EN fallback |
+| `locales/tr.json` | Türkçe çeviriler (~85 key: tabs, notes, reminders, errors...) |
+| `locales/en.json` | İngilizce çeviriler (~85 key, aynı key yapısı) |
+| `dateLocale.ts` | date-fns locale helper: `getDateLocale()` → TR veya EN-US |
+
+**Kullanım:**
+- React bileşenlerinde: `const { t } = useTranslation()` → `t('notes.title')`
+- Utility dosyalarında: `import i18n` → `i18n.t('errors.generic')`
+- Tarih formatlama: `format(date, 'pattern', { locale: getDateLocale() })`
+
+### 3. Component Layer (`src/components/`)
 
 | Bilesen | Sorumluluk | Kullanildigi Yer |
 |---------|------------|------------------|
@@ -192,8 +221,10 @@ app/
 | `ColorPicker` | 8 renk secim dairesi | BottomSheet (yeni not) |
 | `EmptyState` | Ikon + mesaj (bos liste) | Notes, Reminders |
 | `TranscriptionStatus` | AI isleme durumu (spinner/sonuc/hata) | BottomSheet (yeni not) |
+| `SearchBar` | Arama input + temizle butonu | Notes header |
+| `ColorFilter` | Yatay kaydırılabilir renk chip'leri | Notes header |
 
-### 3. State Layer (`src/stores/`)
+### 4. State Layer (`src/stores/`)
 
 **Zustand** ile merkezi state yonetimi. Tek store tum uygulamayi yonetir.
 
@@ -215,22 +246,29 @@ interface NoteStore {
 }
 ```
 
-### 4. Data Layer (`src/lib/`)
+### 5. Data Layer (`src/lib/`)
 
 | Modul | Sorumluluk | Platform |
 |-------|------------|----------|
 | `database.ts` | SQLite baglantisi, tablo olusturma | Native only |
 | `database.web.ts` | Web stub (null doner, in-memory) | Web only |
 | `schema.ts` | Drizzle ORM tablo semalari | Native only |
-| `gemini.ts` | Vercel proxy'ye istek + retry + hata yonetimi | Tüm platformlar |
-| `notifications.ts` | Bildirim izinleri, zamanlama, iptal | Native only |
+| `gemini.ts` | Vercel proxy'ye istek + retry + hata yonetimi + i18n dil gönderimi | Tüm platformlar |
+| `notifications.ts` | Bildirim izinleri, zamanlama, iptal + i18n başlık | Native only |
 | `colors.ts` | 8 renk paleti, yardimci fonksiyonlar | Tüm platformlar |
 
-### 5. Serverless API Layer (`api/`)
+### 6. Serverless API Layer (`api/`)
 
 | Dosya | Endpoint | Sorumluluk | Deploy |
 |-------|----------|------------|--------|
-| `api/transcribe.ts` | `POST /api/transcribe` | Gemini proxy + CORS + rate limit | Vercel |
+| `api/transcribe.ts` | `POST /api/transcribe` | Gemini proxy + CORS + rate limit + dil bazlı prompt | Vercel |
+
+**Dil Akışı:**
+1. Client `language: i18n.language` gönderir (TR veya EN)
+2. Server `SYSTEM_PROMPTS[language]` ile doğru prompt'u seçer
+3. Prompt'a güncel tarih/saat inject edilir
+4. Gemini audio'yu transkript eder + reminder intent çıkarır
+5. Response aynı JSON yapısında döner (dil bağımsız)
 
 ---
 
@@ -243,6 +281,7 @@ interface NoteStore {
 │ app/**                             │ 📱 Mobile (Expo Go / EAS)    │
 │ src/components/**                  │ 📱 Mobile (Expo Go / EAS)    │
 │ src/stores/**                      │ 📱 Mobile (Expo Go / EAS)    │
+│ src/i18n/**                        │ 📱 Mobile + 🌐 Web           │
 │ src/lib/database.ts                │ 📱 Mobile (native only)      │
 │ src/lib/database.web.ts            │ 🌐 Web (Expo Web)            │
 │ src/lib/gemini.ts                  │ 📱 Mobile + 🌐 Web           │
@@ -271,7 +310,7 @@ interface NoteStore {
 │  ✅ Sadece EXPO_PUBLIC_API_URL (Vercel URL) var
 │
 │  POST /api/transcribe
-│  Body: { audioBase64, mimeType } veya { text }
+│  Body: { audioBase64, mimeType, language } veya { text, language }
 │
 ▼
 ☁️ Vercel Serverless Function
@@ -281,7 +320,7 @@ interface NoteStore {
 │  🔒 Body Limit: 5MB max
 │  🔒 GEMINI_API_KEY: Encrypted env var (sunucu tarafı)
 │
-│  → Gemini API çağrısı (key sunucuda)
+│  → Dil bazlı prompt seçimi + Gemini API çağrısı
 │
 ▼
 🤖 Google Gemini 2.5 Flash
@@ -315,6 +354,38 @@ Iliskiler:
 - reminders.note_id → notes.id (ON DELETE CASCADE)
 - Bir notun 0 veya 1 aktif hatirlicisi olabilir
 ```
+
+---
+
+## i18n Mimarisi
+
+```
+┌──────────────────────────────────────────────────┐
+│              expo-localization                     │
+│         getLocales()[0].languageCode              │
+│                   │                               │
+│                   ▼                               │
+│  ┌────────────────────────────────────────────┐   │
+│  │            i18next init                     │   │
+│  │  lng: deviceLang === "tr" ? "tr" : "en"    │   │
+│  │  fallbackLng: "en"                          │   │
+│  └───────┬──────────────┬─────────────────────┘   │
+│          │              │                         │
+│          ▼              ▼                         │
+│   ┌────────────┐ ┌────────────┐                   │
+│   │  tr.json   │ │  en.json   │  (~85 key each)  │
+│   └────────────┘ └────────────┘                   │
+└──────────────────────────────────────────────────┘
+                   │
+    ┌──────────────┼──────────────┐
+    │              │              │
+    ▼              ▼              ▼
+React Components  Utility Files  Server (API)
+useTranslation()  i18n.t()       req.body.language
+t('key')                         → SYSTEM_PROMPTS[lang]
+```
+
+**Key categories:** tabs, greeting, notes, search, colors, reminders, quickReminder, transcription, voice, detail, alerts, errors
 
 ---
 
@@ -352,30 +423,39 @@ Iliskiler:
 
 ```
 app/_layout.tsx
+  └── src/i18n/index.ts (side-effect import → i18next init)
   └── src/stores/useNoteStore.ts (completeReminder)
   └── src/lib/database.ts (initDatabase)
   └── src/lib/notifications.ts (requestPermissions)
 
 app/(tabs)/index.tsx
+  └── react-i18next (useTranslation)
   └── src/stores/useNoteStore.ts
   └── src/components/NoteCard.tsx
   │     └── src/lib/colors.ts
+  │     └── src/i18n/dateLocale.ts
   └── src/components/VoiceRecorder.tsx
   └── src/components/ColorPicker.tsx
   └── src/components/EmptyState.tsx
+  └── src/components/SearchBar.tsx
+  └── src/components/ColorFilter.tsx
   └── src/components/TranscriptionStatus.tsx
   └── src/lib/gemini.ts (transcribeAndExtract)
   └── src/lib/colors.ts
 
 app/(tabs)/reminders.tsx
+  └── react-i18next (useTranslation)
   └── src/stores/useNoteStore.ts
   └── src/lib/colors.ts
+  └── src/i18n/dateLocale.ts
   └── src/components/EmptyState.tsx
 
 app/note/[id].tsx
+  └── react-i18next (useTranslation)
   └── src/stores/useNoteStore.ts
   └── src/components/ReminderPicker.tsx
   └── src/lib/colors.ts
+  └── src/i18n/dateLocale.ts
 
 src/stores/useNoteStore.ts
   └── src/lib/database.ts (db)
@@ -385,10 +465,15 @@ src/stores/useNoteStore.ts
   └── src/types/note.ts
 
 src/lib/gemini.ts
+  └── src/i18n/index.ts (i18n.language, i18n.t)
   └── expo-file-system (native: audio → base64)
   └── Vercel proxy (HTTPS fetch + retry)
 
+src/lib/notifications.ts
+  └── src/i18n/index.ts (i18n.t for notification title)
+
 api/transcribe.ts (Vercel)
+  └── SYSTEM_PROMPTS (TR/EN)
   └── Google Gemini API (server-side key)
 ```
 
@@ -416,8 +501,14 @@ api/transcribe.ts (Vercel)
 ### Neden Gemini 2.5 Flash?
 - Multimodal: tek API çağrısı ile audio → transkript + intent
 - Hızlı (~2-5 saniye) ve ucuz (~$0.001/istek)
-- Türkçe dil desteği iyi
+- Türkçe ve İngilizce dil desteği iyi
 - Yapılandırılmış JSON çıktı desteği
+
+### Neden i18next?
+- Endüstri standardı React i18n çözümü
+- `useTranslation` hook ile kolay entegrasyon
+- Namespace ve fallback desteği
+- expo-localization ile cihaz dili otomatik algılama
 
 ### Neden Zustand?
 - Minimal boilerplate (Redux'a kiyasla)
@@ -434,7 +525,8 @@ api/transcribe.ts (Vercel)
 - Supabase Storage (ses dosyaları buluta)
 
 ### Faz 3: Gelişmiş Özellikler
+- Photo notes: Notlara fotoğraf ekleme
 - Offline queue: İnternet yokken ses kaydını sakla, bağlantıda AI'ya gönder
-- Not arama ve filtreleme
 - Etiketler / kategoriler
 - EAS Build ile App Store / Play Store dağıtım
+- Ek dil desteği (yeni locale JSON dosyaları eklenerek)

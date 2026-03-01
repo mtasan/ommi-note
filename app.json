@@ -1,12 +1,12 @@
 {
   "expo": {
-    "name": "OmmiNote",
-    "slug": "ommi-note",
+    "name": "Asyra",
+    "slug": "asyra",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "automatic",
-    "scheme": "omminote",
+    "scheme": "asyra",
     "splash": {
       "image": "./assets/splash-icon.png",
       "resizeMode": "contain",
@@ -14,9 +14,9 @@
     },
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": "com.omminote.app",
+      "bundleIdentifier": "com.asyra.app",
       "infoPlist": {
-        "NSMicrophoneUsageDescription": "OmmiNote needs microphone access to record voice notes."
+        "NSMicrophoneUsageDescription": "Asyra needs microphone access to record voice notes."
       }
     },
     "android": {
@@ -26,7 +26,7 @@
         "backgroundImage": "./assets/android-icon-background.png",
         "monochromeImage": "./assets/android-icon-monochrome.png"
       },
-      "package": "com.omminote.app",
+      "package": "com.asyra.app",
       "permissions": [
         "RECORD_AUDIO"
       ]
@@ -44,7 +44,8 @@
           "sounds": []
         }
       ],
-      "expo-font"
+      "expo-font",
+      "expo-localization"
     ]
   }
 }

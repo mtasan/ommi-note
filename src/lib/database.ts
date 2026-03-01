@@ -1,6 +1,6 @@
 import { Platform } from "react-native";
 
-const DB_NAME = "omminote.db";
+const DB_NAME = "asyra.db";
 
 let _db: any = null;
 
@@ -18,7 +18,7 @@ export function getDb() {
 
 export async function initDatabase() {
   if (Platform.OS === "web") {
-    console.log("[OmmiNote] Web platform - using in-memory store");
+    console.log("[Asyra] Web platform - using in-memory store");
     return;
   }
 

@@ -6,6 +6,7 @@ import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { initDatabase } from "../src/lib/database";
 import { requestNotificationPermissions } from "../src/lib/notifications";
 import { useNoteStore } from "../src/stores/useNoteStore";
+import "../src/i18n";
 import "../global.css";
 
 export default function RootLayout() {

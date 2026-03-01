@@ -1,5 +1,6 @@
 import { View, TextInput, Pressable } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
+import { useTranslation } from "react-i18next";
 
 interface SearchBarProps {
   value: string;
@@ -7,6 +8,8 @@ interface SearchBarProps {
 }
 
 export function SearchBar({ value, onChangeText }: SearchBarProps) {
+  const { t } = useTranslation();
+
   return (
     <View
       style={{
@@ -23,7 +26,7 @@ export function SearchBar({ value, onChangeText }: SearchBarProps) {
       <TextInput
         value={value}
         onChangeText={onChangeText}
-        placeholder="Notlarda ara..."
+        placeholder={t("search.placeholder")}
         placeholderTextColor="#A3A3A3"
         style={{
           flex: 1,

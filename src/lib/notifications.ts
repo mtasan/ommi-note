@@ -1,4 +1,5 @@
 import { Platform } from "react-native";
+import i18n from "../i18n";
 
 // Web-safe: only import native modules on native platforms
 function getNotificationsModule() {
@@ -62,7 +63,7 @@ export async function scheduleReminder(
   noteId?: string
 ): Promise<string> {
   if (Platform.OS === "web") {
-    console.log("[OmmiNote] Web: reminder scheduled (mock)", reminderId);
+    console.log("[Asyra] Web: reminder scheduled (mock)", reminderId);
     return reminderId;
   }
 
@@ -75,7 +76,7 @@ export async function scheduleReminder(
 
   const notificationId = await Notifications.scheduleNotificationAsync({
     content: {
-      title: "OmmiNote Hatırlatıcı 🔔",
+      title: `Asyra ${i18n.t("reminders.notificationTitle")}`,
       body:
         noteContent.length > 100
           ? noteContent.slice(0, 100) + "..."

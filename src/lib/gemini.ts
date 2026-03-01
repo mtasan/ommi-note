@@ -1,4 +1,5 @@
 import { Platform } from "react-native";
+import i18n from "../i18n";
 
 /**
  * API URL for the Vercel serverless proxy.
@@ -58,7 +59,7 @@ function parseProxyResponse(data: any): VoiceNoteResult {
     if (reminderDate.getTime() > Date.now()) {
       result.reminder = {
         date: reminderDate,
-        rawText: data.reminder.rawText || "Hatırlatıcı",
+        rawText: data.reminder.rawText || i18n.t("reminders.defaultText"),
       };
     }
   }
@@ -91,7 +92,7 @@ async function fetchWithRetry(
         const waitMs = retryAfter * 1000;
 
         console.log(
-          `[OmmiNote] Retry ${attempt + 1}/${maxRetries} after ${retryAfter}s (status: ${response.status})`
+          `[Asyra] Retry ${attempt + 1}/${maxRetries} after ${retryAfter}s (status: ${response.status})`
         );
         await new Promise((resolve) => setTimeout(resolve, waitMs));
         continue;
@@ -104,7 +105,7 @@ async function fetchWithRetry(
       if (attempt < maxRetries) {
         const waitMs = Math.pow(2, attempt + 1) * 1000;
         console.log(
-          `[OmmiNote] Network error, retry ${attempt + 1}/${maxRetries} after ${waitMs / 1000}s`
+          `[Asyra] Network error, retry ${attempt + 1}/${maxRetries} after ${waitMs / 1000}s`
         );
         await new Promise((resolve) => setTimeout(resolve, waitMs));
         continue;
@@ -121,15 +122,15 @@ async function fetchWithRetry(
 function getUserMessage(status: number, errorData: any): string {
   switch (status) {
     case 429:
-      return "Çok fazla istek gönderildi. Lütfen biraz bekleyip tekrar deneyin.";
+      return i18n.t("errors.tooManyRequests");
     case 413:
-      return "Ses kaydı çok büyük. Daha kısa bir kayıt deneyin.";
+      return i18n.t("errors.audioTooLarge");
     case 502:
-      return "AI servisi şu an yanıt vermiyor. Tekrar deneniyor...";
+      return i18n.t("errors.aiUnavailable");
     case 503:
-      return "Servis geçici olarak kullanılamıyor. Lütfen biraz bekleyin.";
+      return i18n.t("errors.serviceUnavailable");
     default:
-      return errorData?.error || "Bir hata oluştu. Lütfen tekrar deneyin.";
+      return errorData?.error || i18n.t("errors.generic");
   }
 }
 
@@ -147,7 +148,11 @@ export async function transcribeAndExtract(
   const response = await fetchWithRetry(`${apiUrl}/api/transcribe`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ audioBase64: base64Audio, mimeType }),
+    body: JSON.stringify({
+      audioBase64: base64Audio,
+      mimeType,
+      language: i18n.language,
+    }),
   });
 
   if (!response.ok) {
@@ -172,7 +177,7 @@ export async function extractIntentFromText(
   const response = await fetchWithRetry(`${apiUrl}/api/transcribe`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ text }),
+    body: JSON.stringify({ text, language: i18n.language }),
   });
 
   if (!response.ok) {

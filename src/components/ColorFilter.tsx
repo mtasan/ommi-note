@@ -1,4 +1,5 @@
 import { View, Text, Pressable, ScrollView } from "react-native";
+import { useTranslation } from "react-i18next";
 import { NOTE_COLORS, type NoteColorName } from "../lib/colors";
 
 interface ColorFilterProps {
@@ -7,6 +8,8 @@ interface ColorFilterProps {
 }
 
 export function ColorFilter({ selected, onSelect }: ColorFilterProps) {
+  const { t } = useTranslation();
+
   return (
     <ScrollView
       horizontal
@@ -37,7 +40,7 @@ export function ColorFilter({ selected, onSelect }: ColorFilterProps) {
             color: selected === null ? "#FFFFFF" : "#737373",
           }}
         >
-          Tümü
+          {t("search.all")}
         </Text>
       </Pressable>
 
@@ -78,7 +81,7 @@ export function ColorFilter({ selected, onSelect }: ColorFilterProps) {
                   color: "#333",
                 }}
               >
-                {color.label}
+                {t(`colors.${color.name}`)}
               </Text>
             )}
           </Pressable>

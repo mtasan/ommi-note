@@ -14,6 +14,7 @@ import {
 import { useFocusEffect } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
+import { useTranslation } from "react-i18next";
 import { useNoteStore } from "../../src/stores/useNoteStore";
 import { NoteCard } from "../../src/components/NoteCard";
 import { VoiceRecorder } from "../../src/components/VoiceRecorder";
@@ -40,6 +41,7 @@ if (!isWeb) {
 }
 
 export default function NotesScreen() {
+  const { t } = useTranslation();
   const insets = useSafeAreaInsets();
   const { notes, reminders, loadNotes, loadReminders, createNote } = useNoteStore();
 
@@ -124,9 +126,9 @@ export default function NotesScreen() {
     const text = newNoteText.trim();
     if (!text && !voiceUri) {
       if (isWeb) {
-        alert("Lütfen bir şeyler yazın veya ses kaydedin.");
+        alert(t("notes.emptyValidation"));
       } else {
-        Alert.alert("Boş not", "Lütfen bir şeyler yazın veya ses kaydedin.");
+        Alert.alert(t("notes.emptyValidationTitle"), t("notes.emptyValidation"));
       }
       return;
     }
@@ -173,7 +175,7 @@ export default function NotesScreen() {
         Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       }
     } catch (error) {
-      console.warn("[OmmiNote] Gemini processing failed:", error);
+      console.warn("[Asyra] Gemini processing failed:", error);
       setProcessingState("error");
     }
   };
@@ -198,9 +200,9 @@ export default function NotesScreen() {
 
   const getGreeting = () => {
     const h = new Date().getHours();
-    if (h < 12) return "Günaydın!";
-    if (h < 18) return "İyi günler!";
-    return "İyi akşamlar!";
+    if (h < 12) return t("greeting.morning");
+    if (h < 18) return t("greeting.afternoon");
+    return t("greeting.evening");
   };
 
   // Shared create note form
@@ -214,7 +216,7 @@ export default function NotesScreen() {
           marginBottom: 16,
         }}
       >
-        Yeni Not
+        {t("notes.newNote")}
       </Text>
 
       {/* Color picker */}
@@ -226,7 +228,7 @@ export default function NotesScreen() {
       <TextInput
         value={newNoteText}
         onChangeText={setNewNoteText}
-        placeholder="Aklına ne geliyorsa yaz..."
+        placeholder={t("notes.placeholder")}
         placeholderTextColor="#A3A3A3"
         multiline
         style={{
@@ -273,7 +275,7 @@ export default function NotesScreen() {
         >
           <Ionicons name="alarm-outline" size={16} color="#737373" />
           <Text style={{ color: "#737373", fontSize: 13 }}>
-            Hatırlatıcıyı tekrar ekle
+            {t("reminders.reAdd")}
           </Text>
         </Pressable>
       )}
@@ -321,7 +323,7 @@ export default function NotesScreen() {
                 fontWeight: "500",
               }}
             >
-              Sesli
+              {t("notes.voice")}
             </Text>
           </Pressable>
         ) : (
@@ -338,7 +340,7 @@ export default function NotesScreen() {
             }}
           >
             <Ionicons name="close" size={20} color="#737373" />
-            <Text style={{ color: "#737373", fontWeight: "500" }}>Vazgeç</Text>
+            <Text style={{ color: "#737373", fontWeight: "500" }}>{t("notes.cancel")}</Text>
           </Pressable>
         )}
 
@@ -359,7 +361,7 @@ export default function NotesScreen() {
         >
           <Ionicons name="checkmark" size={20} color="white" />
           <Text style={{ color: "white", fontWeight: "700", fontSize: 15 }}>
-            Kaydet
+            {t("notes.save")}
           </Text>
         </Pressable>
       </View>
@@ -381,7 +383,7 @@ export default function NotesScreen() {
           {getGreeting()}
         </Text>
         <Text style={{ fontSize: 28, fontWeight: "800", color: "#262626" }}>
-          Notlarım
+          {t("notes.title")}
         </Text>
       </View>
 
@@ -414,14 +416,14 @@ export default function NotesScreen() {
           hasActiveFilter ? (
             <EmptyState
               icon="search-outline"
-              title="Sonuç bulunamadı"
-              description="Farklı bir arama terimi veya renk deneyin."
+              title={t("search.noResults")}
+              description={t("search.noResultsHint")}
             />
           ) : (
             <EmptyState
               icon="create-outline"
-              title="Henüz not yok"
-              description="Aşağıdaki + butonuna tıklayarak ilk notunu oluştur!"
+              title={t("notes.emptyTitle")}
+              description={t("notes.emptyDescription")}
             />
           )
         }

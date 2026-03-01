@@ -1,8 +1,11 @@
 import { Tabs } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import { Platform } from "react-native";
+import { useTranslation } from "react-i18next";
 
 export default function TabLayout() {
+  const { t } = useTranslation();
+
   return (
     <Tabs
       screenOptions={{
@@ -31,7 +34,7 @@ export default function TabLayout() {
       <Tabs.Screen
         name="index"
         options={{
-          title: "Notlar",
+          title: t("tabs.notes"),
           tabBarIcon: ({ color, size }) => (
             <Ionicons name="documents" size={size} color={color} />
           ),
@@ -40,7 +43,7 @@ export default function TabLayout() {
       <Tabs.Screen
         name="reminders"
         options={{
-          title: "Hatırlatıcılar",
+          title: t("tabs.reminders"),
           tabBarIcon: ({ color, size }) => (
             <Ionicons name="alarm" size={size} color={color} />
           ),

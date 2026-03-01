@@ -6,5 +6,5 @@ export function getDb() {
 }
 
 export async function initDatabase() {
-  console.log("[OmmiNote] Web platform - using in-memory store");
+  console.log("[Asyra] Web platform - using in-memory store");
 }

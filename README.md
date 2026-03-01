@@ -1,4 +1,4 @@
-# OmmiNote
+# Asyra – AI Notes, Voice & Photos
 
 A cross-platform voice-first note-taking app with AI-powered transcription, smart reminders, and offline-first storage.
 
@@ -11,6 +11,7 @@ Built with **React Native + Expo** for iOS, Android, and Web.
 - **Offline-First** — All notes stored locally in SQLite; works without internet
 - **Color-Coded Notes** — 8 Google Keep-style colors for visual organization
 - **Search & Filter** — Instant text search across notes and transcripts, filter by color
+- **Multi-Language** — Turkish and English UI with automatic device language detection; Gemini prompts adapt per language
 - **Secure API Proxy** — API keys never leave the server; all AI calls go through a Vercel serverless function
 
 ## Architecture
@@ -21,9 +22,10 @@ Mobile App (Expo)          Vercel Serverless           Google AI
 │ React Native │  HTTPS   │ api/transcribe   │  HTTPS │ Gemini   │
 │ + SQLite     │ -------> │ + CORS + Rate    │ -----> │ 2.5      │
 │ + expo-av    │ <------- │   Limiting       │ <----- │ Flash    │
-└──────────────┘   JSON   └──────────────────┘  JSON  └──────────┘
-
+│ + i18next    │   JSON   └──────────────────┘  JSON  └──────────┘
+└──────────────┘
 Key: API key stays server-side, never in the client bundle
+     Language param sent with each request → correct prompt selected
 ```
 
 ### Tech Stack
@@ -36,6 +38,7 @@ Key: API key stays server-side, never in the client bundle
 | **Database** | expo-sqlite + Drizzle ORM |
 | **Audio** | expo-av (recording + playback) |
 | **Notifications** | expo-notifications (local push) |
+| **i18n** | i18next + react-i18next + expo-localization |
 | **Styling** | NativeWind v4 (Tailwind for RN) |
 | **AI / STT** | Google Gemini 2.5 Flash (multimodal) |
 | **API Proxy** | Vercel Serverless Functions |
@@ -44,9 +47,9 @@ Key: API key stays server-side, never in the client bundle
 ## Project Structure
 
 ```
-ommi-note/
+asyra/
 ├── app/                          # Screens (Expo Router file-based routing)
-│   ├── _layout.tsx               # Root layout: DB init, notification permissions
+│   ├── _layout.tsx               # Root layout: DB init, notification permissions, i18n init
 │   ├── (tabs)/
 │   │   ├── index.tsx             # Notes list + search/filter + FAB + voice recording
 │   │   └── reminders.tsx         # Reminders list (active + completed)
@@ -63,6 +66,13 @@ ommi-note/
 │   │   ├── SearchBar.tsx         # Search input with clear button
 │   │   ├── ColorFilter.tsx       # Horizontal scrollable color chips
 │   │   └── EmptyState.tsx        # Placeholder for empty lists
+│   │
+│   ├── i18n/                     # Internationalization
+│   │   ├── index.ts              # i18next init + device language detection
+│   │   ├── dateLocale.ts         # date-fns locale helper (TR/EN)
+│   │   └── locales/
+│   │       ├── tr.json           # Turkish translations (~85 keys)
+│   │       └── en.json           # English translations (~85 keys)
 │   │
 │   ├── stores/
 │   │   └── useNoteStore.ts       # Zustand store (notes + reminders CRUD)
@@ -99,8 +109,8 @@ ommi-note/
 ### Installation
 
 ```bash
-git clone https://github.com/mtasan/ommi-note.git
-cd ommi-note
+git clone https://github.com/mtasan/asyra.git
+cd asyra
 npm install
 ```
 
@@ -110,7 +120,7 @@ Create a `.env` file in the project root:
 
 ```env
 # Client-side (bundled into the app)
-EXPO_PUBLIC_API_URL=https://ommi-note.vercel.app
+EXPO_PUBLIC_API_URL=https://asyra-app.vercel.app
 
 # Server-side only (Vercel — never exposed to client)
 GEMINI_API_KEY=your_gemini_api_key_here
@@ -148,9 +158,11 @@ The project auto-deploys to Vercel on every push to `main`:
 1. User taps mic → expo-av records audio (.m4a)
 2. Recording completes → audio converted to base64
 3. POST to Vercel proxy → /api/transcribe
+   Body: { audioBase64, mimeType, language: "tr"|"en" }
 4. Serverless function:
    ├── CORS + rate limit + body size checks
-   ├── Injects current date/time into Turkish prompt
+   ├── Selects language-specific system prompt (TR or EN)
+   ├── Injects current date/time into prompt
    └── Calls Gemini 2.5 Flash with audio
 5. Gemini returns structured JSON:
    ├── transcript: full text transcription
@@ -159,6 +171,14 @@ The project auto-deploys to Vercel on every push to `main`:
 6. Client auto-fills note text + shows reminder badge
 7. User saves → SQLite insert + notification scheduled
 ```
+
+### Multi-Language (i18n)
+
+- **Device detection**: `expo-localization` detects device language at startup
+- **UI translations**: All 85+ strings served via `i18next` + `react-i18next` (`useTranslation` hook)
+- **Date formatting**: `date-fns` locale switches automatically (TR/EN)
+- **Gemini prompts**: Server selects language-specific system prompt based on `language` param
+- **Fallback**: Non-TR devices default to English
 
 ### Security
 
@@ -197,6 +217,7 @@ notes                          reminders
 ## Roadmap
 
 - [ ] Cloud sync (Supabase) — cross-device note synchronization
+- [ ] Photo notes — attach images to notes
 - [ ] Offline queue — save voice recordings offline, process when connected
 - [ ] Tags / categories
 - [ ] EAS Build — App Store & Play Store distribution

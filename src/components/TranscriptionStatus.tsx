@@ -1,7 +1,8 @@
 import { View, Text, Pressable, ActivityIndicator } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { format } from "date-fns";
-import { tr } from "date-fns/locale";
+import { useTranslation } from "react-i18next";
+import { getDateLocale } from "../i18n/dateLocale";
 
 export type ProcessingState = "idle" | "processing" | "done" | "error";
 
@@ -27,6 +28,8 @@ export function TranscriptionStatus({
   onRetry,
   onRemoveAudio,
 }: TranscriptionStatusProps) {
+  const { t } = useTranslation();
+
   if (state === "idle") return null;
 
   // Processing state
@@ -48,10 +51,10 @@ export function TranscriptionStatus({
         <ActivityIndicator size="small" color="#EA580C" />
         <View style={{ flex: 1 }}>
           <Text style={{ color: "#EA580C", fontWeight: "600", fontSize: 14 }}>
-            Ses işleniyor...
+            {t("transcription.processing")}
           </Text>
           <Text style={{ color: "#C2410C", fontSize: 12, marginTop: 2 }}>
-            Gemini ile transkript ve hatırlatıcı analizi yapılıyor
+            {t("transcription.processingDetail")}
           </Text>
         </View>
       </View>
@@ -77,10 +80,10 @@ export function TranscriptionStatus({
         <Ionicons name="warning" size={20} color="#DC2626" />
         <View style={{ flex: 1 }}>
           <Text style={{ color: "#DC2626", fontWeight: "600", fontSize: 14 }}>
-            Ses işlenemedi
+            {t("transcription.failed")}
           </Text>
           <Text style={{ color: "#991B1B", fontSize: 12, marginTop: 2 }}>
-            Ses kaydı saklandı, metni manuel girebilirsiniz
+            {t("transcription.failedDetail")}
           </Text>
         </View>
         {onRetry && (
@@ -94,7 +97,7 @@ export function TranscriptionStatus({
             }}
           >
             <Text style={{ color: "#DC2626", fontWeight: "600", fontSize: 12 }}>
-              Tekrar
+              {t("transcription.retry")}
             </Text>
           </Pressable>
         )}
@@ -123,7 +126,7 @@ export function TranscriptionStatus({
       >
         <Ionicons name="mic" size={18} color="#1976D2" />
         <Text style={{ flex: 1, color: "#1976D2", fontWeight: "500" }}>
-          Ses kaydedildi ve yazıya dönüştürüldü
+          {t("transcription.recorded")}
         </Text>
         {onRemoveAudio && (
           <Pressable onPress={onRemoveAudio}>
@@ -155,7 +158,7 @@ export function TranscriptionStatus({
             <Text
               style={{ color: "#16A34A", fontWeight: "600", fontSize: 12 }}
             >
-              Transkript
+              {t("transcription.transcript")}
             </Text>
           </View>
           <Text
@@ -186,11 +189,11 @@ export function TranscriptionStatus({
             <Text
               style={{ color: "#2563EB", fontWeight: "600", fontSize: 13 }}
             >
-              Hatırlatıcı tespit edildi
+              {t("reminders.detected")}
             </Text>
             <Text style={{ color: "#1E40AF", fontSize: 12, marginTop: 2 }}>
               {format(suggestedReminder.date, "d MMMM yyyy, HH:mm", {
-                locale: tr,
+                locale: getDateLocale(),
               })}
             </Text>
           </View>
@@ -207,7 +210,7 @@ export function TranscriptionStatus({
               <Text
                 style={{ color: "white", fontWeight: "700", fontSize: 12 }}
               >
-                Ekle
+                {t("reminders.addButton")}
               </Text>
             </Pressable>
             <Pressable

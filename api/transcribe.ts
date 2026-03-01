@@ -5,7 +5,7 @@ const GEMINI_API_URL =
 
 // Allowed origins — add your production domains here
 const ALLOWED_ORIGINS = [
-  "https://ommi-note.vercel.app",
+  "https://asyra-app.vercel.app",
   "http://localhost:3000",
   "http://localhost:8081",
   "http://localhost:8082",
@@ -68,7 +68,9 @@ function setCorsHeaders(req: VercelRequest, res: VercelResponse) {
   res.setHeader("Access-Control-Max-Age", "86400");
 }
 
-const SYSTEM_PROMPT = `Sen bir ses notu asistanısın. Kullanıcı Türkçe sesli not bırakıyor.
+// Multi-language system prompts
+const SYSTEM_PROMPTS: Record<string, string> = {
+  tr: `Sen bir ses notu asistanısın. Kullanıcı Türkçe sesli not bırakıyor.
 Görevin:
 1. Sesi metne dönüştür (transkript).
 2. Not içeriğini çıkar — hatırlatıcı ile ilgili kısımları temizle.
@@ -100,9 +102,44 @@ JSON formatında yanıt ver, başka hiçbir şey yazma:
 
 - "1 saat sonra bana hatırlat ilaçlarımı içmem lazım"
   → noteContent: "İlaçlarımı içmem lazım"
-  → hasReminder: true, reminderDateISO: "{{ONE_HOUR_LATER}}"`;
+  → hasReminder: true, reminderDateISO: "{{ONE_HOUR_LATER}}"`,
 
-function buildPrompt(): string {
+  en: `You are a voice note assistant. The user is leaving voice notes in English.
+Your tasks:
+1. Transcribe the audio to text (transcript).
+2. Extract the note content — remove any reminder-related parts.
+3. If the user requests a reminder (e.g., "remind me tomorrow", "remind me at 9pm", "remind me in 1 hour"), detect it.
+
+TODAY'S DATE: {{TODAY}}
+
+Respond in JSON format only, nothing else:
+{
+  "transcript": "Full transcript text",
+  "noteContent": "Cleaned note content (excluding reminder parts)",
+  "hasReminder": true/false,
+  "reminderDateISO": "ISO 8601 date or null",
+  "reminderRawText": "Original reminder-related text or null"
+}
+
+Examples:
+- "I need to call John about the project proposal, remind me at 9pm"
+  → noteContent: "I need to call John about the project proposal"
+  → hasReminder: true, reminderDateISO: "{{TODAY_DATE}}T21:00:00"
+
+- "Buy milk from the store"
+  → noteContent: "Buy milk from the store"
+  → hasReminder: false
+
+- "Meeting tomorrow at 9am, remind me about it"
+  → noteContent: "Meeting tomorrow at 9am"
+  → hasReminder: true, reminderDateISO: "{{TOMORROW_DATE}}T09:00:00"
+
+- "Remind me in 1 hour to take my medicine"
+  → noteContent: "Take my medicine"
+  → hasReminder: true, reminderDateISO: "{{ONE_HOUR_LATER}}"`,
+};
+
+function buildPrompt(language: string): string {
   const now = new Date();
   const today = now.toISOString().split("T")[0];
   const tomorrow = new Date(now.getTime() + 24 * 60 * 60 * 1000)
@@ -110,7 +147,11 @@ function buildPrompt(): string {
     .split("T")[0];
   const oneHourLater = new Date(now.getTime() + 60 * 60 * 1000).toISOString();
 
-  return SYSTEM_PROMPT.replace("{{TODAY}}", now.toLocaleString("tr-TR"))
+  const template = SYSTEM_PROMPTS[language] || SYSTEM_PROMPTS["en"];
+  const locale = language === "tr" ? "tr-TR" : "en-US";
+
+  return template
+    .replace("{{TODAY}}", now.toLocaleString(locale))
     .replace(/\{\{TODAY_DATE\}\}/g, today)
     .replace(/\{\{TOMORROW_DATE\}\}/g, tomorrow)
     .replace(/\{\{ONE_HOUR_LATER\}\}/g, oneHourLater);
@@ -141,7 +182,7 @@ function parseGeminiResponse(text: string) {
     if (reminderDate.getTime() > Date.now()) {
       result.reminder = {
         dateISO: parsed.reminderDateISO,
-        rawText: parsed.reminderRawText || "Hatırlatıcı",
+        rawText: parsed.reminderRawText || "Reminder",
       };
     }
   }
@@ -194,7 +235,7 @@ export default async function handler(
   }
 
   try {
-    const { audioBase64, mimeType, text } = req.body;
+    const { audioBase64, mimeType, text, language } = req.body;
 
     if (!audioBase64 && !text) {
       return res
@@ -202,7 +243,10 @@ export default async function handler(
         .json({ error: "Either audioBase64 or text is required" });
     }
 
-    const prompt = buildPrompt();
+    // Use client language or default to English
+    const lang = language || "en";
+    const prompt = buildPrompt(lang);
+    const userSaidPrefix = lang === "tr" ? "Kullanıcının söylediği" : "User said";
 
     // Build Gemini request
     const parts: any[] = [];
@@ -210,7 +254,7 @@ export default async function handler(
     if (text) {
       // Text-only mode
       parts.push({
-        text: `${prompt}\n\nKullanıcının söylediği: "${text}"`,
+        text: `${prompt}\n\n${userSaidPrefix}: "${text}"`,
       });
     } else {
       // Audio mode

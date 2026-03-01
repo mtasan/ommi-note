@@ -1,0 +1,111 @@
+{
+  "tabs": {
+    "notes": "Notlarım",
+    "reminders": "Hatırlatıcılar"
+  },
+  "greeting": {
+    "morning": "Günaydın!",
+    "afternoon": "İyi günler!",
+    "evening": "İyi akşamlar!"
+  },
+  "notes": {
+    "title": "Notlarım",
+    "newNote": "Yeni Not",
+    "placeholder": "Aklına ne geliyorsa yaz...",
+    "save": "Kaydet",
+    "voice": "Sesli",
+    "cancel": "Vazgeç",
+    "voiceNote": "Sesli not",
+    "emptyTitle": "Henüz not yok",
+    "emptyDescription": "Aşağıdaki + butonuna tıklayarak ilk notunu oluştur!",
+    "emptyValidation": "Lütfen bir şeyler yazın veya ses kaydedin.",
+    "emptyValidationTitle": "Boş not",
+    "notFound": "Not bulunamadı"
+  },
+  "search": {
+    "placeholder": "Notlarda ara...",
+    "noResults": "Sonuç bulunamadı",
+    "noResultsHint": "Farklı bir arama terimi veya renk deneyin.",
+    "all": "Tümü"
+  },
+  "colors": {
+    "yellow": "Sarı",
+    "green": "Yeşil",
+    "blue": "Mavi",
+    "purple": "Mor",
+    "pink": "Pembe",
+    "orange": "Turuncu",
+    "teal": "Turkuaz",
+    "red": "Kırmızı"
+  },
+  "reminders": {
+    "title": "Hatırlatıcılar",
+    "add": "Hatırlatıcı Ekle",
+    "set": "Hatırlatıcı Ayarla",
+    "detected": "Hatırlatıcı tespit edildi",
+    "addButton": "Ekle",
+    "reAdd": "Hatırlatıcıyı tekrar ekle",
+    "active": "Aktif",
+    "overdue": "geçmiş",
+    "emptyTitle": "Hatırlatıcı yok",
+    "emptyDescription": "Notlarına hatırlatıcı ekleyerek hiçbir şeyi kaçırma!",
+    "quickOptions": "Hızlı Seçenekler",
+    "customDateTime": "Özel Tarih/Saat",
+    "futureRequired": "Hatırlatma zamanı gelecekte olmalı.",
+    "errorTitle": "Hata",
+    "addError": "Hatırlatıcı eklenemedi.",
+    "notificationTitle": "Hatırlatıcı 🔔",
+    "defaultText": "Hatırlatıcı"
+  },
+  "quickReminder": {
+    "30min": "30 dk sonra",
+    "1hour": "1 saat sonra",
+    "3hours": "3 saat sonra",
+    "tomorrow9": "Yarın 09:00",
+    "1day": "1 gün sonra",
+    "1week": "1 hafta sonra"
+  },
+  "transcription": {
+    "processing": "Ses işleniyor...",
+    "processingDetail": "Gemini ile transkript ve hatırlatıcı analizi yapılıyor",
+    "failed": "Ses işlenemedi",
+    "failedDetail": "Ses kaydı saklandı, metni manuel girebilirsiniz",
+    "retry": "Tekrar",
+    "recorded": "Ses kaydedildi ve yazıya dönüştürüldü",
+    "transcript": "Transkript",
+    "audioTranscript": "Ses Transkripti"
+  },
+  "voice": {
+    "recording": "Kayıt yapılıyor...",
+    "stopTouch": "Durdurmak için dokun",
+    "recordNote": "Sesli not kaydet"
+  },
+  "detail": {
+    "back": "Geri",
+    "voiceNote": "Sesli Not",
+    "playing": "Çalıyor...",
+    "tapToListen": "Dinlemek için dokun",
+    "editPlaceholder": "Notunuzu yazın...",
+    "edited": "Düzenlendi"
+  },
+  "alerts": {
+    "deleteTitle": "Notu Sil",
+    "deleteMessage": "Bu notu silmek istediğine emin misin?",
+    "deleteConfirm": "Sil",
+    "deleteCancel": "Vazgeç",
+    "permissionTitle": "İzin Gerekli",
+    "permissionMessage": "Sesli not için mikrofon izni gerekli. Ayarlar'dan izin verin.",
+    "errorTitle": "Hata",
+    "recordStartError": "Ses kaydı başlatılamadı",
+    "recordStopError": "Ses kaydı durdurulamadı",
+    "audioPlayError": "Ses dosyası çalınamadı."
+  },
+  "errors": {
+    "tooManyRequests": "Çok fazla istek gönderildi. Lütfen biraz bekleyip tekrar deneyin.",
+    "audioTooLarge": "Ses kaydı çok büyük. Daha kısa bir kayıt deneyin.",
+    "aiUnavailable": "AI servisi şu an yanıt vermiyor. Tekrar deneniyor...",
+    "serviceUnavailable": "Servis geçici olarak kullanılamıyor. Lütfen biraz bekleyin.",
+    "generic": "Bir hata oluştu. Lütfen tekrar deneyin.",
+    "unknownError": "Bilinmeyen hata"
+  }
+}

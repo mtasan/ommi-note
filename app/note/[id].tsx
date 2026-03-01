@@ -14,12 +14,14 @@ import { Ionicons } from "@expo/vector-icons";
 import { Audio } from "expo-av";
 import * as Haptics from "expo-haptics";
 import { format } from "date-fns";
-import { tr } from "date-fns/locale";
+import { useTranslation } from "react-i18next";
 import { useNoteStore } from "../../src/stores/useNoteStore";
 import { ReminderPicker } from "../../src/components/ReminderPicker";
 import { getColorByName } from "../../src/lib/colors";
+import { getDateLocale } from "../../src/i18n/dateLocale";
 
 export default function NoteDetailScreen() {
+  const { t } = useTranslation();
   const { id } = useLocalSearchParams<{ id: string }>();
   const router = useRouter();
   const insets = useSafeAreaInsets();
@@ -51,10 +53,10 @@ export default function NoteDetailScreen() {
   }, [note, content]);
 
   const handleDelete = () => {
-    Alert.alert("Notu Sil", "Bu notu silmek istediğine emin misin?", [
-      { text: "Vazgeç", style: "cancel" },
+    Alert.alert(t("alerts.deleteTitle"), t("alerts.deleteMessage"), [
+      { text: t("alerts.deleteCancel"), style: "cancel" },
       {
-        text: "Sil",
+        text: t("alerts.deleteConfirm"),
         style: "destructive",
         onPress: async () => {
           if (note) {
@@ -70,11 +72,11 @@ export default function NoteDetailScreen() {
   const handleScheduleReminder = async (date: Date) => {
     if (note) {
       try {
-        await addReminder(note.id, content || "Sesli not", date);
+        await addReminder(note.id, content || t("notes.voiceNote"), date);
         setShowReminder(false);
         Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       } catch (err: any) {
-        Alert.alert("Hata", err.message || "Hatırlatıcı eklenemedi.");
+        Alert.alert(t("alerts.errorTitle"), err.message || t("reminders.addError"));
       }
     }
   };
@@ -113,7 +115,7 @@ export default function NoteDetailScreen() {
         }
       });
     } catch {
-      Alert.alert("Hata", "Ses dosyası çalınamadı.");
+      Alert.alert(t("alerts.errorTitle"), t("alerts.audioPlayError"));
     }
   };
 
@@ -127,10 +129,12 @@ export default function NoteDetailScreen() {
   if (!note) {
     return (
       <View style={{ flex: 1, alignItems: "center", justifyContent: "center" }}>
-        <Text style={{ color: "#A3A3A3" }}>Not bulunamadı</Text>
+        <Text style={{ color: "#A3A3A3" }}>{t("notes.notFound")}</Text>
       </View>
     );
   }
+
+  const dateLocale = getDateLocale();
 
   return (
     <View style={{ flex: 1, backgroundColor: color.bg }}>
@@ -155,7 +159,7 @@ export default function NoteDetailScreen() {
           }}
         >
           <Ionicons name="chevron-back" size={24} color="#333" />
-          <Text style={{ fontSize: 16, color: "#333" }}>Geri</Text>
+          <Text style={{ fontSize: 16, color: "#333" }}>{t("detail.back")}</Text>
         </Pressable>
 
         <View style={{ flexDirection: "row", gap: 8 }}>
@@ -193,9 +197,9 @@ export default function NoteDetailScreen() {
       >
         {/* Date info */}
         <Text style={{ fontSize: 12, color: "#888", marginBottom: 16 }}>
-          {format(new Date(note.createdAt), "d MMMM yyyy, HH:mm", { locale: tr })}
+          {format(new Date(note.createdAt), "d MMMM yyyy, HH:mm", { locale: dateLocale })}
           {note.updatedAt !== note.createdAt &&
-            ` · Düzenlendi: ${format(new Date(note.updatedAt), "HH:mm", { locale: tr })}`}
+            ` · ${t("detail.edited")}: ${format(new Date(note.updatedAt), "HH:mm", { locale: dateLocale })}`}
         </Text>
 
         {/* Active reminder badge */}
@@ -215,7 +219,7 @@ export default function NoteDetailScreen() {
             <Ionicons name="alarm" size={18} color="#E65100" />
             <Text style={{ flex: 1, color: "#E65100", fontWeight: "500", fontSize: 13 }}>
               {format(new Date(activeReminder.remindAt), "d MMM yyyy, HH:mm", {
-                locale: tr,
+                locale: dateLocale,
               })}
             </Text>
             <Ionicons name="close-circle" size={18} color="#E65100" />
@@ -254,10 +258,10 @@ export default function NoteDetailScreen() {
             </View>
             <View style={{ flex: 1 }}>
               <Text style={{ fontWeight: "600", color: "#333", fontSize: 14 }}>
-                Sesli Not
+                {t("detail.voiceNote")}
               </Text>
               <Text style={{ color: "#888", fontSize: 12 }}>
-                {isPlaying ? "Çalıyor..." : "Dinlemek için dokun"}
+                {isPlaying ? t("detail.playing") : t("detail.tapToListen")}
               </Text>
             </View>
           </Pressable>
@@ -287,7 +291,7 @@ export default function NoteDetailScreen() {
               <Text
                 style={{ color: "#16A34A", fontWeight: "600", fontSize: 12 }}
               >
-                Ses Transkripti
+                {t("transcription.audioTranscript")}
               </Text>
             </View>
             <Text
@@ -307,7 +311,7 @@ export default function NoteDetailScreen() {
         <TextInput
           value={content}
           onChangeText={setContent}
-          placeholder="Notunuzu yazın..."
+          placeholder={t("detail.editPlaceholder")}
           placeholderTextColor="#A3A3A3"
           multiline
           style={{

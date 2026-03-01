@@ -1,9 +1,10 @@
 import { View, Text, Pressable } from "react-native";
 import { useRouter } from "expo-router";
 import { format } from "date-fns";
-import { tr } from "date-fns/locale";
 import { Ionicons } from "@expo/vector-icons";
+import { useTranslation } from "react-i18next";
 import { getColorByName } from "../lib/colors";
+import { getDateLocale } from "../i18n/dateLocale";
 import type { Note } from "../types/note";
 
 interface NoteCardProps {
@@ -12,6 +13,7 @@ interface NoteCardProps {
 }
 
 export function NoteCard({ note, hasReminder }: NoteCardProps) {
+  const { t } = useTranslation();
   const router = useRouter();
   const color = getColorByName(note.color);
 
@@ -41,7 +43,7 @@ export function NoteCard({ note, hasReminder }: NoteCardProps) {
             <Ionicons name="document-text-outline" size={14} color="#666" />
           )}
           <Text style={{ fontSize: 11, color: "#888" }}>
-            {format(new Date(note.createdAt), "d MMM", { locale: tr })}
+            {format(new Date(note.createdAt), "d MMM", { locale: getDateLocale() })}
           </Text>
         </View>
         {hasReminder && (
@@ -53,14 +55,14 @@ export function NoteCard({ note, hasReminder }: NoteCardProps) {
 
       {/* Content */}
       <Text style={{ fontSize: 15, color: "#333", lineHeight: 22 }} numberOfLines={4}>
-        {preview || (note.transcript ? note.transcript : "Sesli not")}
+        {preview || (note.transcript ? note.transcript : t("notes.voiceNote"))}
       </Text>
 
       {/* Voice badge */}
       {note.type === "voice" && (
         <View style={{ flexDirection: "row", alignItems: "center", gap: 4, marginTop: 8 }}>
           <Ionicons name="play-circle" size={20} color="#1976D2" />
-          <Text style={{ fontSize: 12, color: "#1976D2", fontWeight: "500" }}>Sesli not</Text>
+          <Text style={{ fontSize: 12, color: "#1976D2", fontWeight: "500" }}>{t("notes.voiceNote")}</Text>
         </View>
       )}
     </Pressable>
