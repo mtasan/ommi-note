@@ -12,7 +12,7 @@ Bu belge OmmiNote uygulamasinin mimari yapisini, deploy topolojisini, veri akisl
 │                                                                 │
 │  ┌───────────────────────────────────────────────────────────┐  │
 │  │              OmmiNote Mobile App                           │  │
-│  │          (React Native + Expo SDK 55)                      │  │
+│  │          (React Native + Expo SDK 54)                      │  │
 │  │                                                           │  │
 │  │  Platform: iOS / Android / Web                            │  │
 │  │  Dağıtım: Expo Go (dev) / EAS Build (prod)               │  │

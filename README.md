@@ -30,7 +30,7 @@ Key: API key stays server-side, never in the client bundle
 
 | Layer | Technology |
 |-------|-----------|
-| **Framework** | React Native 0.83 + Expo SDK 55 |
+| **Framework** | React Native 0.81 + Expo SDK 54 |
 | **Routing** | Expo Router (file-based) |
 | **State** | Zustand 5.x |
 | **Database** | expo-sqlite + Drizzle ORM |
