@@ -263,6 +263,46 @@ export default function NoteDetailScreen() {
           </Pressable>
         )}
 
+        {/* Transcript (from AI voice processing) */}
+        {note.transcript && (
+          <View
+            style={{
+              backgroundColor: "rgba(255,255,255,0.6)",
+              padding: 14,
+              borderRadius: 14,
+              marginBottom: 16,
+              borderLeftWidth: 3,
+              borderLeftColor: "#16A34A",
+            }}
+          >
+            <View
+              style={{
+                flexDirection: "row",
+                alignItems: "center",
+                gap: 6,
+                marginBottom: 6,
+              }}
+            >
+              <Ionicons name="document-text" size={14} color="#16A34A" />
+              <Text
+                style={{ color: "#16A34A", fontWeight: "600", fontSize: 12 }}
+              >
+                Ses Transkripti
+              </Text>
+            </View>
+            <Text
+              style={{
+                color: "#166534",
+                fontSize: 13,
+                lineHeight: 20,
+                fontStyle: "italic",
+              }}
+            >
+              {note.transcript}
+            </Text>
+          </View>
+        )}
+
         {/* Content editor */}
         <TextInput
           value={content}

@@ -1,14 +1,30 @@
-import { drizzle } from "drizzle-orm/expo-sqlite";
-import { openDatabaseSync } from "expo-sqlite";
-import * as schema from "./schema";
+import { Platform } from "react-native";
 
 const DB_NAME = "omminote.db";
 
-const expoDb = openDatabaseSync(DB_NAME);
+let _db: any = null;
 
-export const db = drizzle(expoDb, { schema });
+export function getDb() {
+  if (_db) return _db;
+  if (Platform.OS === "web") return null;
+
+  const { drizzle } = require("drizzle-orm/expo-sqlite");
+  const { openDatabaseSync } = require("expo-sqlite");
+  const schema = require("./schema");
+  const expoDb = openDatabaseSync(DB_NAME);
+  _db = drizzle(expoDb, { schema });
+  return _db;
+}
 
 export async function initDatabase() {
+  if (Platform.OS === "web") {
+    console.log("[OmmiNote] Web platform - using in-memory store");
+    return;
+  }
+
+  const { openDatabaseSync } = require("expo-sqlite");
+  const expoDb = openDatabaseSync(DB_NAME);
+
   expoDb.execSync(`
     CREATE TABLE IF NOT EXISTS notes (
       id TEXT PRIMARY KEY,

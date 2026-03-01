@@ -1,21 +1,38 @@
-import * as Notifications from "expo-notifications";
-import * as Device from "expo-device";
 import { Platform } from "react-native";
 
-Notifications.setNotificationHandler({
-  handleNotification: async () => ({
-    shouldShowAlert: true,
-    shouldPlaySound: true,
-    shouldSetBadge: true,
-    shouldShowBanner: true,
-    shouldShowList: true,
-  }),
-});
+// Web-safe: only import native modules on native platforms
+function getNotificationsModule() {
+  if (Platform.OS === "web") return null;
+  return require("expo-notifications");
+}
+
+function getDeviceModule() {
+  if (Platform.OS === "web") return null;
+  return require("expo-device");
+}
+
+// Set notification handler only on native
+if (Platform.OS !== "web") {
+  const Notifications = getNotificationsModule();
+  if (Notifications) {
+    Notifications.setNotificationHandler({
+      handleNotification: async () => ({
+        shouldShowAlert: true,
+        shouldPlaySound: true,
+        shouldSetBadge: true,
+        shouldShowBanner: true,
+        shouldShowList: true,
+      }),
+    });
+  }
+}
 
 export async function requestNotificationPermissions(): Promise<boolean> {
-  if (!Device.isDevice) {
-    return false;
-  }
+  if (Platform.OS === "web") return false;
+
+  const Device = getDeviceModule();
+  const Notifications = getNotificationsModule();
+  if (!Device || !Notifications || !Device.isDevice) return false;
 
   const { status: existingStatus } = await Notifications.getPermissionsAsync();
   let finalStatus = existingStatus;
@@ -25,9 +42,7 @@ export async function requestNotificationPermissions(): Promise<boolean> {
     finalStatus = status;
   }
 
-  if (finalStatus !== "granted") {
-    return false;
-  }
+  if (finalStatus !== "granted") return false;
 
   if (Platform.OS === "android") {
     await Notifications.setNotificationChannelAsync("reminders", {
@@ -43,8 +58,15 @@ export async function requestNotificationPermissions(): Promise<boolean> {
 export async function scheduleReminder(
   reminderId: string,
   noteContent: string,
-  remindAt: Date
+  remindAt: Date,
+  noteId?: string
 ): Promise<string> {
+  if (Platform.OS === "web") {
+    console.log("[OmmiNote] Web: reminder scheduled (mock)", reminderId);
+    return reminderId;
+  }
+
+  const Notifications = getNotificationsModule()!;
   const trigger = remindAt.getTime() - Date.now();
 
   if (trigger <= 0) {
@@ -53,9 +75,12 @@ export async function scheduleReminder(
 
   const notificationId = await Notifications.scheduleNotificationAsync({
     content: {
-      title: "OmmiNote Hatırlatıcı",
-      body: noteContent.length > 100 ? noteContent.slice(0, 100) + "..." : noteContent,
-      data: { reminderId },
+      title: "OmmiNote Hatırlatıcı 🔔",
+      body:
+        noteContent.length > 100
+          ? noteContent.slice(0, 100) + "..."
+          : noteContent,
+      data: { reminderId, noteId },
     },
     trigger: {
       type: Notifications.SchedulableTriggerInputTypes.TIME_INTERVAL,
@@ -67,5 +92,7 @@ export async function scheduleReminder(
 }
 
 export async function cancelReminder(notificationId: string): Promise<void> {
+  if (Platform.OS === "web") return;
+  const Notifications = getNotificationsModule()!;
   await Notifications.cancelScheduledNotificationAsync(notificationId);
 }

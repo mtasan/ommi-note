@@ -8,28 +8,54 @@ import {
   KeyboardAvoidingView,
   Platform,
   Alert,
+  Modal,
+  ScrollView,
 } from "react-native";
 import { useFocusEffect } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
-import * as Haptics from "expo-haptics";
-import BottomSheet, { BottomSheetView } from "@gorhom/bottom-sheet";
 import { useNoteStore } from "../../src/stores/useNoteStore";
 import { NoteCard } from "../../src/components/NoteCard";
 import { VoiceRecorder } from "../../src/components/VoiceRecorder";
 import { ColorPicker } from "../../src/components/ColorPicker";
 import { EmptyState } from "../../src/components/EmptyState";
+import {
+  TranscriptionStatus,
+  type ProcessingState,
+} from "../../src/components/TranscriptionStatus";
+import { transcribeAndExtract, type VoiceNoteResult } from "../../src/lib/gemini";
 import { getRandomColor, type NoteColorName } from "../../src/lib/colors";
+
+const isWeb = Platform.OS === "web";
+
+// Only import BottomSheet on native
+let BottomSheet: any = null;
+let BottomSheetView: any = null;
+if (!isWeb) {
+  const bs = require("@gorhom/bottom-sheet");
+  BottomSheet = bs.default;
+  BottomSheetView = bs.BottomSheetView;
+}
 
 export default function NotesScreen() {
   const insets = useSafeAreaInsets();
   const { notes, reminders, loadNotes, loadReminders, createNote } = useNoteStore();
 
-  const bottomSheetRef = useRef<BottomSheet>(null);
+  const bottomSheetRef = useRef<any>(null);
+  const [isSheetOpen, setIsSheetOpen] = useState(false);
   const [newNoteText, setNewNoteText] = useState("");
   const [selectedColor, setSelectedColor] = useState<NoteColorName>("yellow");
   const [showVoice, setShowVoice] = useState(false);
   const [voiceUri, setVoiceUri] = useState<string | null>(null);
+
+  // AI transcription state
+  const [processingState, setProcessingState] = useState<ProcessingState>("idle");
+  const [transcript, setTranscript] = useState<string>("");
+  const [suggestedReminder, setSuggestedReminder] = useState<{
+    date: Date;
+    rawText: string;
+  } | null>(null);
+  const [reminderAccepted, setReminderAccepted] = useState(false);
 
   useFocusEffect(
     useCallback(() => {
@@ -38,31 +64,108 @@ export default function NotesScreen() {
     }, [])
   );
 
+  const resetVoiceState = () => {
+    setVoiceUri(null);
+    setProcessingState("idle");
+    setTranscript("");
+    setSuggestedReminder(null);
+    setReminderAccepted(false);
+  };
+
   const openSheet = () => {
     setNewNoteText("");
     setSelectedColor(getRandomColor().name);
     setShowVoice(false);
-    setVoiceUri(null);
-    bottomSheetRef.current?.expand();
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    resetVoiceState();
+    setIsSheetOpen(true);
+    if (!isWeb) {
+      bottomSheetRef.current?.expand();
+      const Haptics = require("expo-haptics");
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    }
+  };
+
+  const closeSheet = () => {
+    setIsSheetOpen(false);
+    if (!isWeb) {
+      bottomSheetRef.current?.close();
+    }
   };
 
   const handleSave = async () => {
     const text = newNoteText.trim();
     if (!text && !voiceUri) {
-      Alert.alert("Boş not", "Lütfen bir şeyler yazın veya ses kaydedin.");
+      if (isWeb) {
+        alert("Lütfen bir şeyler yazın veya ses kaydedin.");
+      } else {
+        Alert.alert("Boş not", "Lütfen bir şeyler yazın veya ses kaydedin.");
+      }
       return;
     }
 
     const type = voiceUri ? (text ? "mixed" : "voice") : "text";
-    await createNote(text, type, selectedColor, voiceUri ?? undefined);
-    bottomSheetRef.current?.close();
-    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+    const reminderDate =
+      reminderAccepted && suggestedReminder ? suggestedReminder.date : undefined;
+
+    await createNote(
+      text,
+      type,
+      selectedColor,
+      voiceUri ?? undefined,
+      transcript || undefined,
+      reminderDate
+    );
+    closeSheet();
+    if (!isWeb) {
+      const Haptics = require("expo-haptics");
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+    }
+  };
+
+  const processVoiceWithGemini = async (uri: string) => {
+    setProcessingState("processing");
+
+    try {
+      const result: VoiceNoteResult = await transcribeAndExtract(uri);
+
+      // Auto-fill the text input with extracted note content
+      setNewNoteText(result.noteContent);
+      setTranscript(result.transcript);
+
+      // Set reminder suggestion if detected
+      if (result.reminder) {
+        setSuggestedReminder(result.reminder);
+        setReminderAccepted(true); // Auto-accept by default
+      }
+
+      setProcessingState("done");
+
+      if (!isWeb) {
+        const Haptics = require("expo-haptics");
+        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      }
+    } catch (error) {
+      console.warn("[OmmiNote] Gemini processing failed:", error);
+      setProcessingState("error");
+    }
   };
 
   const handleVoiceComplete = (uri: string) => {
     setVoiceUri(uri);
     setShowVoice(false);
+
+    // Start AI processing immediately
+    processVoiceWithGemini(uri);
+  };
+
+  const handleRetryProcessing = () => {
+    if (voiceUri) {
+      processVoiceWithGemini(voiceUri);
+    }
+  };
+
+  const handleRemoveAudio = () => {
+    resetVoiceState();
   };
 
   const getGreeting = () => {
@@ -71,6 +174,169 @@ export default function NotesScreen() {
     if (h < 18) return "İyi günler!";
     return "İyi akşamlar!";
   };
+
+  // Shared create note form
+  const renderCreateForm = () => (
+    <>
+      <Text
+        style={{
+          fontSize: 20,
+          fontWeight: "700",
+          color: "#262626",
+          marginBottom: 16,
+        }}
+      >
+        Yeni Not
+      </Text>
+
+      {/* Color picker */}
+      <View style={{ marginBottom: 16 }}>
+        <ColorPicker selected={selectedColor} onSelect={setSelectedColor} />
+      </View>
+
+      {/* Text input */}
+      <TextInput
+        value={newNoteText}
+        onChangeText={setNewNoteText}
+        placeholder="Aklına ne geliyorsa yaz..."
+        placeholderTextColor="#A3A3A3"
+        multiline
+        style={{
+          fontSize: 16,
+          color: "#333",
+          textAlignVertical: "top",
+          minHeight: 120,
+          lineHeight: 24,
+        }}
+        autoFocus={!isWeb}
+      />
+
+      {/* Voice processing status (replaces old simple badge) */}
+      {voiceUri && (
+        <TranscriptionStatus
+          state={processingState}
+          transcript={transcript}
+          suggestedReminder={
+            suggestedReminder && reminderAccepted ? suggestedReminder : null
+          }
+          onAcceptReminder={() => setReminderAccepted(true)}
+          onDismissReminder={() => {
+            setSuggestedReminder(null);
+            setReminderAccepted(false);
+          }}
+          onRetry={handleRetryProcessing}
+          onRemoveAudio={handleRemoveAudio}
+        />
+      )}
+
+      {/* Dismissed reminder - show re-add option */}
+      {suggestedReminder && !reminderAccepted && voiceUri && processingState === "done" && (
+        <Pressable
+          onPress={() => setReminderAccepted(true)}
+          style={{
+            flexDirection: "row",
+            alignItems: "center",
+            gap: 6,
+            backgroundColor: "#F5F5F5",
+            padding: 10,
+            borderRadius: 12,
+            marginBottom: 8,
+          }}
+        >
+          <Ionicons name="alarm-outline" size={16} color="#737373" />
+          <Text style={{ color: "#737373", fontSize: 13 }}>
+            Hatırlatıcıyı tekrar ekle
+          </Text>
+        </Pressable>
+      )}
+
+      {/* Voice recorder */}
+      {showVoice && !isWeb && (
+        <View style={{ marginBottom: 12 }}>
+          <VoiceRecorder onRecordingComplete={handleVoiceComplete} />
+        </View>
+      )}
+
+      {/* Bottom actions */}
+      <View
+        style={{
+          flexDirection: "row",
+          alignItems: "center",
+          justifyContent: "space-between",
+          paddingVertical: 12,
+          borderTopWidth: 1,
+          borderTopColor: "#F5F5F5",
+          marginTop: 8,
+        }}
+      >
+        {!isWeb ? (
+          <Pressable
+            onPress={() => setShowVoice(!showVoice)}
+            style={{
+              flexDirection: "row",
+              alignItems: "center",
+              gap: 6,
+              backgroundColor: showVoice ? "#E3F2FD" : "#F5F5F5",
+              paddingHorizontal: 14,
+              paddingVertical: 10,
+              borderRadius: 12,
+            }}
+          >
+            <Ionicons
+              name={showVoice ? "mic" : "mic-outline"}
+              size={20}
+              color={showVoice ? "#1976D2" : "#737373"}
+            />
+            <Text
+              style={{
+                color: showVoice ? "#1976D2" : "#737373",
+                fontWeight: "500",
+              }}
+            >
+              Sesli
+            </Text>
+          </Pressable>
+        ) : (
+          <Pressable
+            onPress={closeSheet}
+            style={{
+              flexDirection: "row",
+              alignItems: "center",
+              gap: 6,
+              backgroundColor: "#F5F5F5",
+              paddingHorizontal: 14,
+              paddingVertical: 10,
+              borderRadius: 12,
+            }}
+          >
+            <Ionicons name="close" size={20} color="#737373" />
+            <Text style={{ color: "#737373", fontWeight: "500" }}>Vazgeç</Text>
+          </Pressable>
+        )}
+
+        <Pressable
+          onPress={handleSave}
+          disabled={processingState === "processing"}
+          style={{
+            flexDirection: "row",
+            alignItems: "center",
+            gap: 6,
+            backgroundColor:
+              processingState === "processing" ? "#93C5FD" : "#3B82F6",
+            paddingHorizontal: 24,
+            paddingVertical: 12,
+            borderRadius: 14,
+            opacity: processingState === "processing" ? 0.7 : 1,
+          }}
+        >
+          <Ionicons name="checkmark" size={20} color="white" />
+          <Text style={{ color: "white", fontWeight: "700", fontSize: 15 }}>
+            Kaydet
+          </Text>
+        </Pressable>
+      </View>
+    </>
+  );
 
   return (
     <View style={{ flex: 1, backgroundColor: "#FAFAFA" }}>
@@ -135,156 +401,85 @@ export default function NotesScreen() {
           shadowOffset: { width: 0, height: 4 },
           shadowOpacity: 0.3,
           shadowRadius: 8,
+          zIndex: 10,
         }}
       >
         <Ionicons name="add" size={30} color="white" />
       </Pressable>
 
-      {/* Bottom Sheet - Create Note */}
-      <BottomSheet
-        ref={bottomSheetRef}
-        index={-1}
-        snapPoints={["55%", "80%"]}
-        enablePanDownToClose
-        backgroundStyle={{
-          backgroundColor: "#FFFFFF",
-          borderRadius: 24,
-          shadowColor: "#000",
-          shadowOffset: { width: 0, height: -4 },
-          shadowOpacity: 0.1,
-          shadowRadius: 16,
-        }}
-        handleIndicatorStyle={{ backgroundColor: "#D4D4D4", width: 40 }}
-      >
-        <BottomSheetView style={{ flex: 1, paddingHorizontal: 20 }}>
-          <KeyboardAvoidingView
-            behavior={Platform.OS === "ios" ? "padding" : "height"}
-            style={{ flex: 1 }}
+      {/* Web: Modal-based create form */}
+      {isWeb && (
+        <Modal
+          visible={isSheetOpen}
+          transparent
+          animationType="slide"
+          onRequestClose={closeSheet}
+        >
+          <Pressable
+            style={{
+              flex: 1,
+              backgroundColor: "rgba(0,0,0,0.4)",
+              justifyContent: "flex-end",
+            }}
+            onPress={closeSheet}
           >
-            <Text
+            <Pressable
+              onPress={(e) => e.stopPropagation()}
               style={{
-                fontSize: 20,
-                fontWeight: "700",
-                color: "#262626",
-                marginBottom: 16,
+                backgroundColor: "#FFFFFF",
+                borderTopLeftRadius: 24,
+                borderTopRightRadius: 24,
+                paddingHorizontal: 20,
+                paddingTop: 12,
+                paddingBottom: 24,
+                maxHeight: "70%",
               }}
             >
-              Yeni Not
-            </Text>
-
-            {/* Color picker */}
-            <View style={{ marginBottom: 16 }}>
-              <ColorPicker selected={selectedColor} onSelect={setSelectedColor} />
-            </View>
-
-            {/* Text input */}
-            <TextInput
-              value={newNoteText}
-              onChangeText={setNewNoteText}
-              placeholder="Aklına ne geliyorsa yaz..."
-              placeholderTextColor="#A3A3A3"
-              multiline
-              style={{
-                flex: 1,
-                fontSize: 16,
-                color: "#333",
-                textAlignVertical: "top",
-                minHeight: 100,
-                lineHeight: 24,
-              }}
-              autoFocus
-            />
-
-            {/* Voice recording badge */}
-            {voiceUri && (
+              {/* Handle bar */}
               <View
                 style={{
-                  flexDirection: "row",
-                  alignItems: "center",
-                  backgroundColor: "#E3F2FD",
-                  padding: 10,
-                  borderRadius: 12,
-                  marginBottom: 8,
-                  gap: 8,
+                  width: 40,
+                  height: 4,
+                  backgroundColor: "#D4D4D4",
+                  borderRadius: 2,
+                  alignSelf: "center",
+                  marginBottom: 16,
                 }}
-              >
-                <Ionicons name="mic" size={18} color="#1976D2" />
-                <Text style={{ flex: 1, color: "#1976D2", fontWeight: "500" }}>
-                  Ses kaydedildi
-                </Text>
-                <Pressable onPress={() => setVoiceUri(null)}>
-                  <Ionicons name="close-circle" size={20} color="#1976D2" />
-                </Pressable>
-              </View>
-            )}
+              />
+              <ScrollView>{renderCreateForm()}</ScrollView>
+            </Pressable>
+          </Pressable>
+        </Modal>
+      )}
 
-            {/* Voice recorder */}
-            {showVoice && (
-              <View style={{ marginBottom: 12 }}>
-                <VoiceRecorder onRecordingComplete={handleVoiceComplete} />
-              </View>
-            )}
-
-            {/* Bottom actions */}
-            <View
-              style={{
-                flexDirection: "row",
-                alignItems: "center",
-                justifyContent: "space-between",
-                paddingVertical: 12,
-                borderTopWidth: 1,
-                borderTopColor: "#F5F5F5",
-                marginBottom: Platform.OS === "ios" ? 20 : 8,
-              }}
+      {/* Native: BottomSheet */}
+      {!isWeb && BottomSheet && (
+        <BottomSheet
+          ref={bottomSheetRef}
+          index={-1}
+          snapPoints={["55%", "80%"]}
+          enablePanDownToClose
+          onClose={() => setIsSheetOpen(false)}
+          backgroundStyle={{
+            backgroundColor: "#FFFFFF",
+            borderRadius: 24,
+            shadowColor: "#000",
+            shadowOffset: { width: 0, height: -4 },
+            shadowOpacity: 0.1,
+            shadowRadius: 16,
+          }}
+          handleIndicatorStyle={{ backgroundColor: "#D4D4D4", width: 40 }}
+        >
+          <BottomSheetView style={{ flex: 1, paddingHorizontal: 20 }}>
+            <KeyboardAvoidingView
+              behavior={Platform.OS === "ios" ? "padding" : "height"}
+              style={{ flex: 1 }}
             >
-              <Pressable
-                onPress={() => setShowVoice(!showVoice)}
-                style={{
-                  flexDirection: "row",
-                  alignItems: "center",
-                  gap: 6,
-                  backgroundColor: showVoice ? "#E3F2FD" : "#F5F5F5",
-                  paddingHorizontal: 14,
-                  paddingVertical: 10,
-                  borderRadius: 12,
-                }}
-              >
-                <Ionicons
-                  name={showVoice ? "mic" : "mic-outline"}
-                  size={20}
-                  color={showVoice ? "#1976D2" : "#737373"}
-                />
-                <Text
-                  style={{
-                    color: showVoice ? "#1976D2" : "#737373",
-                    fontWeight: "500",
-                  }}
-                >
-                  Sesli
-                </Text>
-              </Pressable>
-
-              <Pressable
-                onPress={handleSave}
-                style={{
-                  flexDirection: "row",
-                  alignItems: "center",
-                  gap: 6,
-                  backgroundColor: "#3B82F6",
-                  paddingHorizontal: 24,
-                  paddingVertical: 12,
-                  borderRadius: 14,
-                }}
-              >
-                <Ionicons name="checkmark" size={20} color="white" />
-                <Text style={{ color: "white", fontWeight: "700", fontSize: 15 }}>
-                  Kaydet
-                </Text>
-              </Pressable>
-            </View>
-          </KeyboardAvoidingView>
-        </BottomSheetView>
-      </BottomSheet>
+              {renderCreateForm()}
+            </KeyboardAvoidingView>
+          </BottomSheetView>
+        </BottomSheet>
+      )}
     </View>
   );
 }
