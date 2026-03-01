@@ -1,4 +1,4 @@
-import { useCallback, useRef, useState } from "react";
+import { useCallback, useMemo, useRef, useState } from "react";
 import {
   View,
   Text,
@@ -19,6 +19,8 @@ import { NoteCard } from "../../src/components/NoteCard";
 import { VoiceRecorder } from "../../src/components/VoiceRecorder";
 import { ColorPicker } from "../../src/components/ColorPicker";
 import { EmptyState } from "../../src/components/EmptyState";
+import { SearchBar } from "../../src/components/SearchBar";
+import { ColorFilter } from "../../src/components/ColorFilter";
 import {
   TranscriptionStatus,
   type ProcessingState,
@@ -48,6 +50,10 @@ export default function NotesScreen() {
   const [showVoice, setShowVoice] = useState(false);
   const [voiceUri, setVoiceUri] = useState<string | null>(null);
 
+  // Search & filter state
+  const [searchQuery, setSearchQuery] = useState("");
+  const [filterColor, setFilterColor] = useState<NoteColorName | null>(null);
+
   // AI transcription state
   const [processingState, setProcessingState] = useState<ProcessingState>("idle");
   const [transcript, setTranscript] = useState<string>("");
@@ -56,6 +62,28 @@ export default function NotesScreen() {
     rawText: string;
   } | null>(null);
   const [reminderAccepted, setReminderAccepted] = useState(false);
+
+  // Filtered notes (client-side, instant)
+  const filteredNotes = useMemo(() => {
+    let result = notes;
+
+    if (searchQuery.trim()) {
+      const q = searchQuery.toLowerCase().trim();
+      result = result.filter(
+        (n) =>
+          n.content.toLowerCase().includes(q) ||
+          (n.transcript && n.transcript.toLowerCase().includes(q))
+      );
+    }
+
+    if (filterColor) {
+      result = result.filter((n) => n.color === filterColor);
+    }
+
+    return result;
+  }, [notes, searchQuery, filterColor]);
+
+  const hasActiveFilter = searchQuery.trim().length > 0 || filterColor !== null;
 
   useFocusEffect(
     useCallback(() => {
@@ -345,7 +373,7 @@ export default function NotesScreen() {
         style={{
           paddingTop: insets.top + 12,
           paddingHorizontal: 20,
-          paddingBottom: 16,
+          paddingBottom: 12,
           backgroundColor: "#FFFFFF",
         }}
       >
@@ -357,9 +385,17 @@ export default function NotesScreen() {
         </Text>
       </View>
 
+      {/* Search & Filter — sticky, always visible */}
+      <View style={{ backgroundColor: "#FFFFFF", paddingBottom: 12 }}>
+        <View style={{ paddingHorizontal: 20, marginBottom: 10 }}>
+          <SearchBar value={searchQuery} onChangeText={setSearchQuery} />
+        </View>
+        <ColorFilter selected={filterColor} onSelect={setFilterColor} />
+      </View>
+
       {/* Note list */}
       <FlatList
-        data={notes}
+        data={filteredNotes}
         keyExtractor={(item) => item.id}
         contentContainerStyle={{ padding: 16, paddingBottom: 100 }}
         numColumns={2}
@@ -375,11 +411,19 @@ export default function NotesScreen() {
           </View>
         )}
         ListEmptyComponent={
-          <EmptyState
-            icon="sparkles-outline"
-            title="Henüz not yok"
-            description="Aşağıdaki + butonuna tıklayarak ilk notunu oluştur!"
-          />
+          hasActiveFilter ? (
+            <EmptyState
+              icon="search-outline"
+              title="Sonuç bulunamadı"
+              description="Farklı bir arama terimi veya renk deneyin."
+            />
+          ) : (
+            <EmptyState
+              icon="sparkles-outline"
+              title="Henüz not yok"
+              description="Aşağıdaki + butonuna tıklayarak ilk notunu oluştur!"
+            />
+          )
         }
       />
 
