@@ -12,25 +12,45 @@ const ALLOWED_ORIGINS = [
   "http://localhost:19006", // Expo web default
 ];
 
-// Max request body size: ~10MB (base64 audio can be large)
-const MAX_BODY_SIZE = 10 * 1024 * 1024;
+// Max request body size: 5MB
+const MAX_BODY_SIZE = 5 * 1024 * 1024;
 
-// Simple in-memory rate limiting (per IP, resets on cold start)
-const rateLimitMap = new Map<string, { count: number; resetAt: number }>();
-const RATE_LIMIT_WINDOW = 60 * 1000; // 1 minute
-const RATE_LIMIT_MAX = 20; // 20 requests per minute per IP
+// Rate limiting: 2 per minute AND 20 per hour (per IP, resets on cold start)
+const minuteMap = new Map<string, { count: number; resetAt: number }>();
+const hourMap = new Map<string, { count: number; resetAt: number }>();
+const MINUTE_WINDOW = 60 * 1000;
+const MINUTE_MAX = 2;
+const HOUR_WINDOW = 60 * 60 * 1000;
+const HOUR_MAX = 20;
 
-function isRateLimited(ip: string): boolean {
+function isRateLimited(ip: string): { limited: boolean; retryAfter: number } {
   const now = Date.now();
-  const entry = rateLimitMap.get(ip);
 
-  if (!entry || now > entry.resetAt) {
-    rateLimitMap.set(ip, { count: 1, resetAt: now + RATE_LIMIT_WINDOW });
-    return false;
+  // Check minute limit
+  const mEntry = minuteMap.get(ip);
+  if (!mEntry || now > mEntry.resetAt) {
+    minuteMap.set(ip, { count: 1, resetAt: now + MINUTE_WINDOW });
+  } else {
+    mEntry.count++;
+    if (mEntry.count > MINUTE_MAX) {
+      const wait = Math.ceil((mEntry.resetAt - now) / 1000);
+      return { limited: true, retryAfter: wait };
+    }
   }
 
-  entry.count++;
-  return entry.count > RATE_LIMIT_MAX;
+  // Check hour limit
+  const hEntry = hourMap.get(ip);
+  if (!hEntry || now > hEntry.resetAt) {
+    hourMap.set(ip, { count: 1, resetAt: now + HOUR_WINDOW });
+  } else {
+    hEntry.count++;
+    if (hEntry.count > HOUR_MAX) {
+      const wait = Math.ceil((hEntry.resetAt - now) / 1000);
+      return { limited: true, retryAfter: wait };
+    }
+  }
+
+  return { limited: false, retryAfter: 0 };
 }
 
 function setCorsHeaders(req: VercelRequest, res: VercelResponse) {
@@ -152,10 +172,11 @@ export default async function handler(
     req.socket?.remoteAddress ||
     "unknown";
 
-  if (isRateLimited(clientIp)) {
+  const rateCheck = isRateLimited(clientIp);
+  if (rateCheck.limited) {
     return res.status(429).json({
       error: "Too many requests",
-      retryAfter: 60,
+      retryAfter: rateCheck.retryAfter,
     });
   }
 
