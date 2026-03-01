@@ -419,7 +419,7 @@ export default function NotesScreen() {
             />
           ) : (
             <EmptyState
-              icon="sparkles-outline"
+              icon="create-outline"
               title="Henüz not yok"
               description="Aşağıdaki + butonuna tıklayarak ilk notunu oluştur!"
             />
