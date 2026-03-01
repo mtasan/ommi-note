@@ -3,6 +3,51 @@ import type { VercelRequest, VercelResponse } from "@vercel/node";
 const GEMINI_API_URL =
   "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent";
 
+// Allowed origins — add your production domains here
+const ALLOWED_ORIGINS = [
+  "https://ommi-note.vercel.app",
+  "http://localhost:3000",
+  "http://localhost:8081",
+  "http://localhost:8082",
+  "http://localhost:19006", // Expo web default
+];
+
+// Max request body size: ~10MB (base64 audio can be large)
+const MAX_BODY_SIZE = 10 * 1024 * 1024;
+
+// Simple in-memory rate limiting (per IP, resets on cold start)
+const rateLimitMap = new Map<string, { count: number; resetAt: number }>();
+const RATE_LIMIT_WINDOW = 60 * 1000; // 1 minute
+const RATE_LIMIT_MAX = 20; // 20 requests per minute per IP
+
+function isRateLimited(ip: string): boolean {
+  const now = Date.now();
+  const entry = rateLimitMap.get(ip);
+
+  if (!entry || now > entry.resetAt) {
+    rateLimitMap.set(ip, { count: 1, resetAt: now + RATE_LIMIT_WINDOW });
+    return false;
+  }
+
+  entry.count++;
+  return entry.count > RATE_LIMIT_MAX;
+}
+
+function setCorsHeaders(req: VercelRequest, res: VercelResponse) {
+  const origin = req.headers.origin || "";
+
+  // Mobile apps (React Native) don't send origin header — allow them
+  if (!origin || ALLOWED_ORIGINS.includes(origin)) {
+    res.setHeader("Access-Control-Allow-Origin", origin || "*");
+  } else {
+    res.setHeader("Access-Control-Allow-Origin", ALLOWED_ORIGINS[0]);
+  }
+
+  res.setHeader("Access-Control-Allow-Methods", "POST, OPTIONS");
+  res.setHeader("Access-Control-Allow-Headers", "Content-Type");
+  res.setHeader("Access-Control-Max-Age", "86400");
+}
+
 const SYSTEM_PROMPT = `Sen bir ses notu asistanısın. Kullanıcı Türkçe sesli not bırakıyor.
 Görevin:
 1. Sesi metne dönüştür (transkript).
@@ -88,9 +133,36 @@ export default async function handler(
   req: VercelRequest,
   res: VercelResponse
 ) {
+  // CORS headers for all responses
+  setCorsHeaders(req, res);
+
+  // Handle preflight
+  if (req.method === "OPTIONS") {
+    return res.status(204).end();
+  }
+
   // Only allow POST
   if (req.method !== "POST") {
     return res.status(405).json({ error: "Method not allowed" });
+  }
+
+  // Rate limiting
+  const clientIp =
+    (req.headers["x-forwarded-for"] as string)?.split(",")[0]?.trim() ||
+    req.socket?.remoteAddress ||
+    "unknown";
+
+  if (isRateLimited(clientIp)) {
+    return res.status(429).json({
+      error: "Too many requests",
+      retryAfter: 60,
+    });
+  }
+
+  // Request size check
+  const contentLength = parseInt(req.headers["content-length"] || "0", 10);
+  if (contentLength > MAX_BODY_SIZE) {
+    return res.status(413).json({ error: "Request too large (max 10MB)" });
   }
 
   // Get API key from server environment (NOT exposed to client)
@@ -146,16 +218,19 @@ export default async function handler(
 
     if (!geminiRes.ok) {
       const errorText = await geminiRes.text();
-      console.error(`Gemini API error (${geminiRes.status}):`, errorText.slice(0, 500));
-      return res
-        .status(502)
-        .json({
-          error: "AI processing failed",
-          status: geminiRes.status,
-          detail: geminiRes.status === 429
+      console.error(
+        `Gemini API error (${geminiRes.status}):`,
+        errorText.slice(0, 500)
+      );
+      return res.status(502).json({
+        error: "AI processing failed",
+        status: geminiRes.status,
+        retryAfter: geminiRes.status === 429 ? 60 : undefined,
+        detail:
+          geminiRes.status === 429
             ? "Gemini rate limit exceeded. Please try again in a minute."
             : errorText.slice(0, 200),
-        });
+      });
     }
 
     const data = await geminiRes.json();

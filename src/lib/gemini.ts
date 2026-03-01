@@ -2,8 +2,6 @@ import { Platform } from "react-native";
 
 /**
  * API URL for the Vercel serverless proxy.
- * In production: your Vercel deployment URL
- * In dev: local Vercel dev server
  */
 function getApiUrl(): string {
   const url = process.env.EXPO_PUBLIC_API_URL;
@@ -37,7 +35,6 @@ function getAudioMimeType(uri: string): string {
   if (lower.endsWith(".webm")) return "audio/webm";
   if (lower.endsWith(".3gp")) return "audio/3gpp";
   if (lower.endsWith(".caf")) return "audio/x-caf";
-  // Default for expo-av HIGH_QUALITY on iOS
   return "audio/m4a";
 }
 
@@ -50,10 +47,6 @@ export interface VoiceNoteResult {
   };
 }
 
-/**
- * Parse the proxy response into a VoiceNoteResult.
- * The proxy returns { noteContent, transcript, reminder?: { dateISO, rawText } }
- */
 function parseProxyResponse(data: any): VoiceNoteResult {
   const result: VoiceNoteResult = {
     noteContent: data.noteContent || "",
@@ -74,9 +67,75 @@ function parseProxyResponse(data: any): VoiceNoteResult {
 }
 
 /**
+ * Fetch with automatic retry on 429/502/503 errors.
+ * Retries up to maxRetries times with exponential backoff.
+ */
+async function fetchWithRetry(
+  url: string,
+  options: RequestInit,
+  maxRetries = 2
+): Promise<Response> {
+  let lastError: Error | null = null;
+
+  for (let attempt = 0; attempt <= maxRetries; attempt++) {
+    try {
+      const response = await fetch(url, options);
+
+      // Retry on rate limit or server errors
+      if (
+        (response.status === 429 || response.status === 502 || response.status === 503) &&
+        attempt < maxRetries
+      ) {
+        const data = await response.json().catch(() => ({}));
+        const retryAfter = data.retryAfter || Math.pow(2, attempt + 1);
+        const waitMs = retryAfter * 1000;
+
+        console.log(
+          `[OmmiNote] Retry ${attempt + 1}/${maxRetries} after ${retryAfter}s (status: ${response.status})`
+        );
+        await new Promise((resolve) => setTimeout(resolve, waitMs));
+        continue;
+      }
+
+      return response;
+    } catch (err: any) {
+      lastError = err;
+      // Network error — retry with backoff
+      if (attempt < maxRetries) {
+        const waitMs = Math.pow(2, attempt + 1) * 1000;
+        console.log(
+          `[OmmiNote] Network error, retry ${attempt + 1}/${maxRetries} after ${waitMs / 1000}s`
+        );
+        await new Promise((resolve) => setTimeout(resolve, waitMs));
+        continue;
+      }
+    }
+  }
+
+  throw lastError || new Error("Request failed after retries");
+}
+
+/**
+ * User-friendly error message from API response.
+ */
+function getUserMessage(status: number, errorData: any): string {
+  switch (status) {
+    case 429:
+      return "Çok fazla istek gönderildi. Lütfen biraz bekleyip tekrar deneyin.";
+    case 413:
+      return "Ses kaydı çok büyük. Daha kısa bir kayıt deneyin.";
+    case 502:
+      return "AI servisi şu an yanıt vermiyor. Tekrar deneniyor...";
+    case 503:
+      return "Servis geçici olarak kullanılamıyor. Lütfen biraz bekleyin.";
+    default:
+      return errorData?.error || "Bir hata oluştu. Lütfen tekrar deneyin.";
+  }
+}
+
+/**
  * Transcribe audio and extract intent via the Vercel proxy.
- * Audio is read as base64 on the client and sent to the proxy,
- * which calls Gemini with the server-side API key.
+ * Includes automatic retry on transient errors.
  */
 export async function transcribeAndExtract(
   audioUri: string
@@ -85,22 +144,16 @@ export async function transcribeAndExtract(
   const base64Audio = await readAudioAsBase64(audioUri);
   const mimeType = getAudioMimeType(audioUri);
 
-  const response = await fetch(`${apiUrl}/api/transcribe`, {
+  const response = await fetchWithRetry(`${apiUrl}/api/transcribe`, {
     method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify({
-      audioBase64: base64Audio,
-      mimeType,
-    }),
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ audioBase64: base64Audio, mimeType }),
   });
 
   if (!response.ok) {
     const errorData = await response.json().catch(() => ({}));
-    throw new Error(
-      `Transcription failed (${response.status}): ${errorData.error || "Unknown error"}`
-    );
+    const message = getUserMessage(response.status, errorData);
+    throw new Error(message);
   }
 
   const data = await response.json();
@@ -108,27 +161,24 @@ export async function transcribeAndExtract(
 }
 
 /**
- * Extract intent from text only (web fallback or manual text processing).
- * Sends text to the proxy for AI processing.
+ * Extract intent from text only (web fallback).
+ * Includes automatic retry on transient errors.
  */
 export async function extractIntentFromText(
   text: string
 ): Promise<VoiceNoteResult> {
   const apiUrl = getApiUrl();
 
-  const response = await fetch(`${apiUrl}/api/transcribe`, {
+  const response = await fetchWithRetry(`${apiUrl}/api/transcribe`, {
     method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-    },
+    headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ text }),
   });
 
   if (!response.ok) {
     const errorData = await response.json().catch(() => ({}));
-    throw new Error(
-      `Intent extraction failed (${response.status}): ${errorData.error || "Unknown error"}`
-    );
+    const message = getUserMessage(response.status, errorData);
+    throw new Error(message);
   }
 
   const data = await response.json();
