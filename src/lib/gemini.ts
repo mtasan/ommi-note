@@ -18,22 +18,12 @@ async function readAudioAsBase64(uri: string): Promise<string> {
   if (Platform.OS === "web") {
     throw new Error("Audio file reading is not supported on web");
   }
-  // expo-file-system v19 (SDK 54) moved to new API structure
-  // Try legacy import first, then new API
-  try {
-    const FileSystem = require("expo-file-system/legacy");
-    const base64 = await FileSystem.readAsStringAsync(uri, {
-      encoding: FileSystem.EncodingType.Base64,
-    });
-    return base64;
-  } catch {
-    // Fallback: use the new expo-file-system API
-    const { readAsStringAsync, EncodingType } = require("expo-file-system");
-    const base64 = await readAsStringAsync(uri, {
-      encoding: EncodingType.Base64,
-    });
-    return base64;
-  }
+  const FileSystem = require("expo-file-system");
+  // Use string "base64" directly — EncodingType enum may be undefined in SDK 54
+  const base64 = await FileSystem.readAsStringAsync(uri, {
+    encoding: "base64",
+  });
+  return base64;
 }
 
 // Determine MIME type from URI
