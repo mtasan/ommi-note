@@ -13,7 +13,7 @@
       "backgroundColor": "#ffffff"
     },
     "ios": {
-      "supportsTablet": true,
+      "supportsTablet": false,
       "bundleIdentifier": "com.asyra.app",
       "infoPlist": {
         "NSMicrophoneUsageDescription": "Asyra needs microphone access to record voice notes.",
