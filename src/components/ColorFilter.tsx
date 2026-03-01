@@ -1,4 +1,5 @@
 import { View, Text, Pressable, ScrollView } from "react-native";
+import { Ionicons } from "@expo/vector-icons";
 import { useTranslation } from "react-i18next";
 import { NOTE_COLORS, type NoteColorName } from "../lib/colors";
 
@@ -44,7 +45,7 @@ export function ColorFilter({ selected, onSelect }: ColorFilterProps) {
         </Text>
       </Pressable>
 
-      {/* Color chips */}
+      {/* Status chips */}
       {NOTE_COLORS.map((color) => {
         const isActive = selected === color.name;
         return (
@@ -56,34 +57,27 @@ export function ColorFilter({ selected, onSelect }: ColorFilterProps) {
               alignItems: "center",
               gap: 6,
               backgroundColor: isActive ? color.bg : "#F5F5F5",
-              paddingHorizontal: isActive ? 12 : 10,
+              paddingHorizontal: 12,
               paddingVertical: 8,
               borderRadius: 20,
               borderWidth: isActive ? 1.5 : 0,
               borderColor: isActive ? color.border : "transparent",
             }}
           >
-            <View
-              style={{
-                width: 18,
-                height: 18,
-                borderRadius: 9,
-                backgroundColor: color.bg,
-                borderWidth: 1.5,
-                borderColor: color.border,
-              }}
+            <Ionicons
+              name={color.icon as any}
+              size={16}
+              color={isActive ? color.border : "#999"}
             />
-            {isActive && (
-              <Text
-                style={{
-                  fontSize: 13,
-                  fontWeight: "600",
-                  color: "#333",
-                }}
-              >
-                {t(`colors.${color.name}`)}
-              </Text>
-            )}
+            <Text
+              style={{
+                fontSize: 13,
+                fontWeight: "600",
+                color: isActive ? "#333" : "#737373",
+              }}
+            >
+              {t(`colors.${color.name}`)}
+            </Text>
           </Pressable>
         );
       })}

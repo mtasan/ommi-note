@@ -4,7 +4,7 @@
     "slug": "asyra",
     "version": "1.0.0",
     "orientation": "portrait",
-    "icon": "./assets/icon.png",
+    "icon": "./assets/Asyra.png",
     "userInterfaceStyle": "automatic",
     "scheme": "asyra",
     "splash": {
@@ -16,7 +16,8 @@
       "supportsTablet": true,
       "bundleIdentifier": "com.asyra.app",
       "infoPlist": {
-        "NSMicrophoneUsageDescription": "Asyra needs microphone access to record voice notes."
+        "NSMicrophoneUsageDescription": "Asyra needs microphone access to record voice notes.",
+        "ITSAppUsesNonExemptEncryption": false
       }
     },
     "android": {
@@ -46,6 +47,12 @@
       ],
       "expo-font",
       "expo-localization"
-    ]
+    ],
+    "extra": {
+      "router": {},
+      "eas": {
+        "projectId": "b8de6281-413d-48a6-9ced-c13e3fd8aecc"
+      }
+    }
   }
 }

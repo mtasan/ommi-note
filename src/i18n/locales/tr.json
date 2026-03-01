@@ -29,14 +29,10 @@
     "all": "Tümü"
   },
   "colors": {
-    "yellow": "Sarı",
-    "green": "Yeşil",
-    "blue": "Mavi",
-    "purple": "Mor",
-    "pink": "Pembe",
-    "orange": "Turuncu",
-    "teal": "Turkuaz",
-    "red": "Kırmızı"
+    "blue": "Başlamadı",
+    "yellow": "Çalışıyor",
+    "green": "Yapıldı",
+    "red": "Acil"
   },
   "reminders": {
     "title": "Hatırlatıcılar",

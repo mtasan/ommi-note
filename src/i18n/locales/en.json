@@ -29,14 +29,10 @@
     "all": "All"
   },
   "colors": {
-    "yellow": "Yellow",
-    "green": "Green",
-    "blue": "Blue",
-    "purple": "Purple",
-    "pink": "Pink",
-    "orange": "Orange",
-    "teal": "Teal",
-    "red": "Red"
+    "blue": "Not Started",
+    "yellow": "In Progress",
+    "green": "Done",
+    "red": "Urgent"
   },
   "reminders": {
     "title": "Reminders",

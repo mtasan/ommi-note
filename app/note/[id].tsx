@@ -17,7 +17,7 @@ import { format } from "date-fns";
 import { useTranslation } from "react-i18next";
 import { useNoteStore } from "../../src/stores/useNoteStore";
 import { ReminderPicker } from "../../src/components/ReminderPicker";
-import { getColorByName } from "../../src/lib/colors";
+import { getColorByName, NOTE_COLORS, type NoteColorName } from "../../src/lib/colors";
 import { getDateLocale } from "../../src/i18n/dateLocale";
 
 export default function NoteDetailScreen() {
@@ -29,6 +29,7 @@ export default function NoteDetailScreen() {
     notes,
     reminders,
     updateNote,
+    updateNoteColor,
     deleteNote,
     addReminder,
     deleteReminder,
@@ -42,7 +43,14 @@ export default function NoteDetailScreen() {
   const soundRef = useRef<Audio.Sound | null>(null);
 
   const activeReminder = id ? getReminderForNote(id) : undefined;
-  const color = note ? getColorByName(note.color) : getColorByName("yellow");
+  const color = note ? getColorByName(note.color) : getColorByName("blue");
+
+  const handleColorChange = async (newColor: NoteColorName) => {
+    if (note && newColor !== note.color) {
+      await updateNoteColor(note.id, newColor);
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    }
+  };
 
   // Auto-save on back
   const handleBack = useCallback(async () => {
@@ -196,11 +204,40 @@ export default function NoteDetailScreen() {
         contentContainerStyle={{ padding: 20, paddingBottom: 40 }}
       >
         {/* Date info */}
-        <Text style={{ fontSize: 12, color: "#888", marginBottom: 16 }}>
+        <Text style={{ fontSize: 12, color: "#888", marginBottom: 12 }}>
           {format(new Date(note.createdAt), "d MMMM yyyy, HH:mm", { locale: dateLocale })}
           {note.updatedAt !== note.createdAt &&
             ` · ${t("detail.edited")}: ${format(new Date(note.updatedAt), "HH:mm", { locale: dateLocale })}`}
         </Text>
+
+        {/* Status picker */}
+        <View style={{ flexDirection: "row", gap: 6, flexWrap: "wrap", marginBottom: 16 }}>
+          {NOTE_COLORS.map((c) => {
+            const isActive = note.color === c.name;
+            return (
+              <Pressable
+                key={c.name}
+                onPress={() => handleColorChange(c.name)}
+                style={{
+                  flexDirection: "row",
+                  alignItems: "center",
+                  gap: 5,
+                  backgroundColor: isActive ? "rgba(255,255,255,0.8)" : "rgba(255,255,255,0.4)",
+                  paddingHorizontal: 10,
+                  paddingVertical: 6,
+                  borderRadius: 16,
+                  borderWidth: isActive ? 1.5 : 1,
+                  borderColor: isActive ? c.border : "rgba(0,0,0,0.08)",
+                }}
+              >
+                <Ionicons name={c.icon as any} size={14} color={isActive ? c.border : "#999"} />
+                <Text style={{ fontSize: 12, fontWeight: isActive ? "600" : "400", color: isActive ? "#333" : "#888" }}>
+                  {t(`colors.${c.name}`)}
+                </Text>
+              </Pressable>
+            );
+          })}
+        </View>
 
         {/* Active reminder badge */}
         {activeReminder && (

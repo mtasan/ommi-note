@@ -35,13 +35,12 @@ export function NoteCard({ note, hasReminder }: NoteCardProps) {
       {/* Header row */}
       <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginBottom: 8 }}>
         <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
-          {note.type === "voice" ? (
-            <Ionicons name="mic" size={14} color="#666" />
-          ) : note.type === "mixed" ? (
-            <Ionicons name="mic-outline" size={14} color="#666" />
-          ) : (
-            <Ionicons name="document-text-outline" size={14} color="#666" />
-          )}
+          {/* Status icon */}
+          <Ionicons name={color.icon as any} size={14} color={color.border} />
+          <Text style={{ fontSize: 11, color: "#888" }}>
+            {t(`colors.${color.name}`)}
+          </Text>
+          <Text style={{ fontSize: 11, color: "#CCC" }}>·</Text>
           <Text style={{ fontSize: 11, color: "#888" }}>
             {format(new Date(note.createdAt), "d MMM", { locale: getDateLocale() })}
           </Text>

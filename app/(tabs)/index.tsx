@@ -27,7 +27,7 @@ import {
   type ProcessingState,
 } from "../../src/components/TranscriptionStatus";
 import { transcribeAndExtract, type VoiceNoteResult } from "../../src/lib/gemini";
-import { getRandomColor, type NoteColorName } from "../../src/lib/colors";
+import { DEFAULT_COLOR, type NoteColorName } from "../../src/lib/colors";
 
 const isWeb = Platform.OS === "web";
 
@@ -104,7 +104,7 @@ export default function NotesScreen() {
 
   const openSheet = () => {
     setNewNoteText("");
-    setSelectedColor(getRandomColor().name);
+    setSelectedColor(DEFAULT_COLOR);
     setShowVoice(false);
     resetVoiceState();
     setIsSheetOpen(true);

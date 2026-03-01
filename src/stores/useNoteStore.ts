@@ -2,7 +2,7 @@ import { create } from "zustand";
 import * as Crypto from "expo-crypto";
 import { Platform } from "react-native";
 import { getDb } from "../lib/database";
-import { getRandomColor } from "../lib/colors";
+import { DEFAULT_COLOR } from "../lib/colors";
 import type { Note, Reminder, NoteType } from "../types/note";
 
 // Lazy imports for native-only modules
@@ -38,6 +38,7 @@ interface NoteStore {
     reminderDate?: Date
   ) => Promise<Note>;
   updateNote: (id: string, content: string) => Promise<void>;
+  updateNoteColor: (id: string, color: string) => Promise<void>;
   deleteNote: (id: string) => Promise<void>;
   addReminder: (noteId: string, noteContent: string, remindAt: Date) => Promise<void>;
   completeReminder: (id: string) => Promise<void>;
@@ -91,7 +92,7 @@ export const useNoteStore = create<NoteStore>((set, get) => ({
   createNote: async (content, type, color, audioUri, transcript, reminderDate) => {
     const now = new Date();
     const id = Crypto.randomUUID();
-    const noteColor = color ?? getRandomColor().name;
+    const noteColor = color ?? DEFAULT_COLOR;
     const note: Note = {
       id,
       content,
@@ -138,6 +139,20 @@ export const useNoteStore = create<NoteStore>((set, get) => ({
     set((state) => ({
       notes: state.notes.map((n) =>
         n.id === id ? { ...n, content, updatedAt: now.getTime() } : n
+      ),
+    }));
+  },
+
+  updateNoteColor: async (id, color) => {
+    const now = new Date();
+    const db = getDb();
+    if (db) {
+      const { eq, notes } = getDrizzleOps();
+      await db.update(notes).set({ color, updatedAt: now }).where(eq(notes.id, id));
+    }
+    set((state) => ({
+      notes: state.notes.map((n) =>
+        n.id === id ? { ...n, color, updatedAt: now.getTime() } : n
       ),
     }));
   },
