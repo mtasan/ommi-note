@@ -24,7 +24,7 @@ export function VoiceRecorder({ onRecordingComplete }: VoiceRecorderProps) {
     try {
       const permission = await Audio.requestPermissionsAsync();
       if (!permission.granted) {
-        Alert.alert("İzin Gerekli", "Sesli not için mikrofon izni gerekli.");
+        Alert.alert("İzin Gerekli", "Sesli not için mikrofon izni gerekli. Ayarlar'dan izin verin.");
         return;
       }
 
@@ -46,8 +46,9 @@ export function VoiceRecorder({ onRecordingComplete }: VoiceRecorderProps) {
       }, 1000);
 
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-    } catch (err) {
-      Alert.alert("Hata", "Ses kaydı başlatılamadı.");
+    } catch (err: any) {
+      console.error("[VoiceRecorder] startRecording error:", err);
+      Alert.alert("Hata", `Ses kaydı başlatılamadı: ${err?.message || "Bilinmeyen hata"}`);
     }
   };
 
@@ -73,30 +74,45 @@ export function VoiceRecorder({ onRecordingComplete }: VoiceRecorderProps) {
       if (uri) {
         onRecordingComplete(uri);
       }
-    } catch (err) {
-      Alert.alert("Hata", "Ses kaydı durdurulamadı.");
+    } catch (err: any) {
+      console.error("[VoiceRecorder] stopRecording error:", err);
+      Alert.alert("Hata", `Ses kaydı durdurulamadı: ${err?.message || "Bilinmeyen hata"}`);
     }
   };
 
   return (
-    <View className="items-center">
+    <View style={{ alignItems: "center" }}>
       {isRecording && (
-        <View className="mb-3 items-center">
-          <View className="flex-row items-center gap-2">
-            <View className="w-3 h-3 rounded-full bg-red-500" />
-            <Text className="text-lg font-semibold text-surface-800">
+        <View style={{ marginBottom: 12, alignItems: "center" }}>
+          <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
+            <View
+              style={{
+                width: 12,
+                height: 12,
+                borderRadius: 6,
+                backgroundColor: "#EF4444",
+              }}
+            />
+            <Text style={{ fontSize: 18, fontWeight: "600", color: "#262626" }}>
               {formatDuration(duration)}
             </Text>
           </View>
-          <Text className="text-xs text-surface-400 mt-1">Kayıt yapılıyor...</Text>
+          <Text style={{ fontSize: 12, color: "#A3A3A3", marginTop: 4 }}>
+            Kayıt yapılıyor...
+          </Text>
         </View>
       )}
 
       <Pressable
         onPress={isRecording ? stopRecording : startRecording}
-        className={`w-16 h-16 rounded-full items-center justify-center ${
-          isRecording ? "bg-red-500" : "bg-primary-500"
-        } active:opacity-80`}
+        style={{
+          width: 64,
+          height: 64,
+          borderRadius: 32,
+          alignItems: "center",
+          justifyContent: "center",
+          backgroundColor: isRecording ? "#EF4444" : "#3B82F6",
+        }}
       >
         <Ionicons
           name={isRecording ? "stop" : "mic"}
@@ -105,7 +121,7 @@ export function VoiceRecorder({ onRecordingComplete }: VoiceRecorderProps) {
         />
       </Pressable>
 
-      <Text className="text-xs text-surface-400 mt-2">
+      <Text style={{ fontSize: 12, color: "#A3A3A3", marginTop: 8 }}>
         {isRecording ? "Durdurmak için dokun" : "Sesli not kaydet"}
       </Text>
     </View>
