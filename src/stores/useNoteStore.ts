@@ -1,5 +1,5 @@
 import { create } from "zustand";
-import { v4 as uuid } from "uuid";
+import * as Crypto from "expo-crypto";
 import { Platform } from "react-native";
 import { getDb } from "../lib/database";
 import { getRandomColor } from "../lib/colors";
@@ -90,7 +90,7 @@ export const useNoteStore = create<NoteStore>((set, get) => ({
 
   createNote: async (content, type, color, audioUri, transcript, reminderDate) => {
     const now = new Date();
-    const id = uuid();
+    const id = Crypto.randomUUID();
     const noteColor = color ?? getRandomColor().name;
     const note: Note = {
       id,
@@ -155,7 +155,7 @@ export const useNoteStore = create<NoteStore>((set, get) => ({
   },
 
   addReminder: async (noteId, noteContent, remindAt) => {
-    const id = uuid();
+    const id = Crypto.randomUUID();
     const now = new Date();
 
     const { scheduleReminder } = getNotifications();
